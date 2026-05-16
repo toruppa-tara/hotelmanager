@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}ลูกค้า/สมาชิก — Hotel Manager{% endblock %}
+{% block breadcrumb %}ลูกค้า / สมาชิก{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <h5 class="fw-bold mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>ลูกค้า / สมาชิก</h5>
+  <button class="btn btn-primary btn-sm" onclick="openMemberForm()">
+    <i class="bi bi-person-plus me-1"></i>เพิ่มสมาชิก
+  </button>
+</div>
+
+<!-- Search -->
+<form class="mb-3" method="get" action="/members">
+  <div class="input-group" style="max-width:420px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" name="q" class="form-control" placeholder="ชื่อ / เบอร์โทร / บัตรประชาชน / บริษัท" value="{{ search_q }}">
+    <button class="btn btn-primary" type="submit">ค้นหา</button>
+    {% if search_q %}<a href="/members" class="btn btn-outline-secondary">ล้าง</a>{% endif %}
+  </div>
+</form>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>ชื่อ-นามสกุล</th>
+            <th>ประเภท</th>
+            <th>เบอร์โทร</th>
+            <th>อีเมล</th>
+            <th>บัตรประชาชน</th>
+            <th>เข้าพักรวม</th>
+            <th>วันที่สมัคร</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in members %}
+          <tr>
+            <td class="text-muted">{{ m.id }}</td>
+            <td class="fw-semibold">
+              {{ m.name }}
+              {% if m.company_name %}<div class="text-muted small">{{ m.company_name }}</div>{% endif %}
+            </td>
+            <td>
+              {% if m.is_corporate %}
+                <span class="badge bg-primary">นิติบุคคล</span>
+              {% else %}
+                <span class="badge bg-secondary">บุคคลธรรมดา</span>
+              {% endif %}
+            </td>
+            <td>{{ m.phone or '-' }}</td>
+            <td>{{ m.email or '-' }}</td>
+            <td>{{ m.id_card or '-' }}</td>
+            <td class="text-center">
+              <span class="badge bg-info text-dark">{{ m.total_stays }} ครั้ง</span>
+            </td>
+            <td>{{ m.created_at.strftime('%d/%m/%y') }}</td>
+            <td>
+              <button class="btn btn-xs btn-outline-primary" onclick="openMemberForm({{ m.id }})">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-xs btn-outline-info" onclick="viewHistory({{ m.id }}, '{{ m.name }}')">
+                <i class="bi bi-clock-history"></i>
+              </button>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-muted py-5">
+            <i class="bi bi-people fs-2 d-block mb-2"></i>ไม่พบข้อมูลสมาชิก
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Member Form Modal -->
+<div class="modal fade" id="memberModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="memberModalTitle">
+          <i class="bi bi-person me-2"></i>ข้อมูลสมาชิก
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="mem_id">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="mem_name">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">ประเภท</label>
+            <select class="form-select" id="mem_is_corporate">
+              <option value="false">บุคคลธรรมดา</option>
+              <option value="true">นิติบุคคล</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">เบอร์โทร</label>
+            <input type="text" class="form-control" id="mem_phone">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">อีเมล</label>
+            <input type="email" class="form-control" id="mem_email">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">เลขบัตรประชาชน / Passport</label>
+            <input type="text" class="form-control" id="mem_id_card">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">ชื่อบริษัท / องค์กร</label>
+            <input type="text" class="form-control" id="mem_company">
+          </div>
+          <div class="col-12">
+            <label class="form-label">ที่อยู่</label>
+            <textarea class="form-control" id="mem_address" rows="2"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">หมายเหตุ</label>
+            <textarea class="form-control" id="mem_notes" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-primary fw-semibold" onclick="saveMember()">
+          <i class="bi bi-save me-1"></i>บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold" id="historyModalTitle">
+          <i class="bi bi-clock-history me-2"></i>ประวัติการเข้าพัก
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>#</th><th>ห้อง</th><th>เช็คอิน</th><th>เช็คเอาต์</th><th>ยอดรวม</th><th>สถานะ</th></tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function openMemberForm(id = null) {
+  document.getElementById('mem_id').value = id || '';
+  const title = id ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิกใหม่';
+  document.getElementById('memberModalTitle').innerHTML = `<i class="bi bi-person me-2"></i>${title}`;
+  if (id) {
+    const res = await fetch(`/api/members/${id}`);
+    const m = await res.json();
+    document.getElementById('mem_name').value = m.name;
+    document.getElementById('mem_phone').value = m.phone;
+    document.getElementById('mem_email').value = m.email;
+    document.getElementById('mem_id_card').value = m.id_card;
+    document.getElementById('mem_company').value = m.company_name;
+    document.getElementById('mem_address').value = m.address;
+    document.getElementById('mem_notes').value = m.notes;
+    document.getElementById('mem_is_corporate').value = m.is_corporate ? 'true' : 'false';
+  } else {
+    ['mem_name','mem_phone','mem_email','mem_id_card','mem_company','mem_address','mem_notes'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('mem_is_corporate').value = 'false';
+  }
+  new bootstrap.Modal(document.getElementById('memberModal')).show();
+}
+
+async function saveMember() {
+  const id = document.getElementById('mem_id').value;
+  const body = {
+    name: document.getElementById('mem_name').value,
+    phone: document.getElementById('mem_phone').value,
+    email: document.getElementById('mem_email').value,
+    id_card: document.getElementById('mem_id_card').value,
+    company_name: document.getElementById('mem_company').value,
+    address: document.getElementById('mem_address').value,
+    notes: document.getElementById('mem_notes').value,
+    is_corporate: document.getElementById('mem_is_corporate').value === 'true',
+  };
+  if (!body.name) { showToast('กรุณากรอกชื่อ', 'danger'); return; }
+  const url = id ? `/api/members/${id}` : '/api/members';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json();
+  showToast(data.message || 'บันทึกเรียบร้อย');
+  setTimeout(() => location.reload(), 800);
+}
+
+async function viewHistory(id, name) {
+  document.getElementById('historyModalTitle').innerHTML = `<i class="bi bi-clock-history me-2"></i>ประวัติการเข้าพัก — ${name}`;
+  const res = await fetch(`/api/members/${id}/history`);
+  const data = await res.json();
+  const statusMap = {confirmed:'<span class="badge bg-primary">ยืนยัน</span>', checked_in:'<span class="badge bg-success">เช็คอิน</span>', checked_out:'<span class="badge bg-secondary">เช็คเอาต์</span>', cancelled:'<span class="badge bg-danger">ยกเลิก</span>'};
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = data.length ? data.map((b,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><span class="badge bg-secondary">${b.room}</span></td>
+      <td>${b.check_in}</td>
+      <td>${b.check_out}</td>
+      <td>฿${Number(b.total).toLocaleString()}</td>
+      <td>${statusMap[b.status]||b.status}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-4">ไม่มีประวัติ</td></tr>';
+  new bootstrap.Modal(document.getElementById('historyModal')).show();
+}
+</script>
+{% endblock %}

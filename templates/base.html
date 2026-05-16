@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Hotel Manager{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=26">
+</head>
+<body>
+
+{% if current_user %}
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <i class="bi bi-building me-2"></i>Hotel Manager
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/dashboard" class="nav-link {% if request.url.path=='/dashboard' %}active{% endif %}">
+      <i class="bi bi-grid-1x2-fill"></i> แดชบอร์ด
+    </a>
+    <a href="/rooms" class="nav-link {% if '/rooms' in request.url.path %}active{% endif %}">
+      <i class="bi bi-calendar3"></i> ตารางห้องพัก
+    </a>
+    <a href="/members" class="nav-link {% if '/members' in request.url.path %}active{% endif %}">
+      <i class="bi bi-people-fill"></i> ลูกค้า/สมาชิก
+    </a>
+    {% if perms.manage_expenses or perms.record_expense %}
+    <a href="/expenses" class="nav-link {% if '/expenses' in request.url.path %}active{% endif %}">
+      <i class="bi bi-receipt"></i> บันทึกค่าใช้จ่าย
+    </a>
+    {% endif %}
+    {% if perms.view_reports or perms.manage_payroll or perms.manage_users or perms.manage_invoice %}
+    <hr class="sidebar-divider">
+    {% endif %}
+    {% if perms.view_reports %}
+    <a href="/reports" class="nav-link {% if '/reports' in request.url.path %}active{% endif %}">
+      <i class="bi bi-bar-chart-fill"></i> รายงานยอดขาย
+    </a>
+    {% endif %}
+    {% if perms.manage_payroll %}
+    <a href="/payroll" class="nav-link {% if '/payroll' in request.url.path %}active{% endif %}">
+      <i class="bi bi-wallet2"></i> เงินเดือนพนักงาน
+    </a>
+    {% elif perms.record_withdrawal %}
+    <div class="nav-link-row d-flex gap-1 px-2 py-1">
+      <a href="/payroll" class="nav-link flex-fill text-center {% if '/payroll' in request.url.path %}active{% endif %}" style="padding:0.4rem 0.3rem;font-size:0.8rem;">
+        <i class="bi bi-cash-coin"></i> เบิกเงิน
+      </a>
+      <a href="/payroll" class="nav-link flex-fill text-center {% if '/payroll' in request.url.path %}active{% endif %}" style="padding:0.4rem 0.3rem;font-size:0.8rem;" onclick="event.preventDefault();window.location='/payroll';setTimeout(()=>openAbsenceForm?.(),400)">
+        <i class="bi bi-calendar-x"></i> วันหยุด
+      </a>
+    </div>
+    {% endif %}
+    {% if perms.manage_users %}
+    <a href="/users" class="nav-link {% if '/users' in request.url.path %}active{% endif %}">
+      <i class="bi bi-person-gear"></i> จัดการผู้ใช้
+    </a>
+    {% endif %}
+    {% if perms.manage_invoice %}
+    <a href="/settings" class="nav-link {% if '/settings' in request.url.path %}active{% endif %}">
+      <i class="bi bi-gear-fill"></i> ตั้งค่าระบบ
+    </a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <i class="bi bi-person-circle me-1"></i>
+      <span>{{ current_user.full_name }}</span>
+      <span class="badge ms-1
+        {% if current_user.role == 'owner' %}bg-danger
+        {% elif current_user.role == 'manager' %}bg-warning text-dark
+        {% else %}bg-secondary{% endif %}">
+        {% if current_user.role == 'owner' %}เจ้าของ
+        {% elif current_user.role == 'manager' %}ผู้จัดการ
+        {% else %}พนักงาน{% endif %}
+      </span>
+    </div>
+    <a href="/logout" class="btn btn-sm btn-outline-light mt-2 w-100">
+      <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+    </a>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content" id="mainContent">
+  <div class="topbar d-flex align-items-center justify-content-between px-3">
+    <button class="btn btn-sm btn-outline-secondary" id="sidebarToggle">
+      <i class="bi bi-list"></i>
+    </button>
+    <span class="text-muted small">{% block breadcrumb %}{% endblock %}</span>
+  </div>
+
+  {% if flash_msg %}
+  <div class="alert alert-{{ 'success' if flash_cat == 'success' else 'danger' }} alert-dismissible fade show mx-3 mt-2" role="alert">
+    {{ flash_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index:9999"></div>
+
+  <div class="content-area">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/app.js?v=11"></script>
+<script>
+  document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('mainContent').classList.toggle('expanded');
+  });
+  // Clear flash cookies
+  document.cookie = 'flash_msg=; max-age=0';
+  document.cookie = 'flash_cat=; max-age=0';
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,789 @@
+{% extends "base.html" %}
+{% block title %}แดชบอร์ด — Hotel Manager{% endblock %}
+{% block breadcrumb %}แดชบอร์ด{% endblock %}
+
+{% block content %}
+
+<style>
+/* ── Dashboard soft-light overrides ─────────────── */
+.db-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(0,0,0,0.055);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.05);
+  transition: transform .22s ease, box-shadow .22s ease;
+  overflow: hidden;
+}
+.db-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06), 0 20px 40px rgba(0,0,0,0.08);
+}
+
+/* Stat cards */
+.db-stat {
+  border-radius: 20px; padding: 1.3rem 1.2rem; color: #fff; position: relative; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+.db-stat:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
+.db-stat::after {
+  content: ""; position: absolute; right: -28px; bottom: -28px;
+  width: 110px; height: 110px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); pointer-events: none;
+}
+.db-stat .stat-icon {
+  font-size: 1.5rem; opacity: 0.88; margin-bottom: 10px; display: block;
+}
+.db-stat .stat-num  { font-size: 2.1rem; font-weight: 800; line-height: 1; }
+.db-stat .stat-lbl  { font-size: 0.78rem; opacity: 0.9; margin-top: 5px; }
+
+/* Today card header */
+.today-head-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; flex-shrink: 0;
+}
+.today-count {
+  font-size: 2rem; font-weight: 800; line-height: 1;
+}
+
+/* Booking rows inside today cards */
+.bk-row {
+  background: #f8fafc;
+  border: 1px solid #e8f0f0;
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.4rem;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+  font-size: 0.8rem;
+}
+.bk-row:hover {
+  background: #f0fdfa;
+  border-color: #a7f3d0;
+  transform: translateX(2px);
+}
+.bk-row:last-child { margin-bottom: 0; }
+
+/* pill badge for room number */
+.room-pill {
+  background: linear-gradient(135deg,#2a9d8f,#1e7a6e);
+  color: #fff; font-weight: 700; font-size: 0.72rem;
+  padding: 3px 9px; border-radius: 8px; display: inline-block;
+}
+.room-pill.blue  { background: linear-gradient(135deg,#3b82f6,#2563eb); }
+.room-pill.cyan  { background: linear-gradient(135deg,#06b6d4,#0891b2); }
+
+/* mini check-in / check-out buttons */
+.btn-act {
+  border: none; border-radius: 9px; font-size: 0.7rem; font-weight: 600;
+  padding: 5px 11px; white-space: nowrap; cursor: pointer;
+  transition: all .18s ease;
+}
+.btn-act-in  { background: #eff6ff; color: #2563eb; }
+.btn-act-in:hover  { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
+.btn-act-out { background: #ecfeff; color: #0891b2; }
+.btn-act-out:hover { background: #0891b2; color: #fff; box-shadow: 0 4px 12px rgba(8,145,178,0.35); }
+
+/* Weather card */
+.weather-card {
+  background: linear-gradient(145deg,#0ea5e9 0%, #0369a1 60%, #075985 100%);
+  color: #fff; border-radius: 20px; padding: 1.3rem;
+  box-shadow: 0 6px 24px rgba(14,165,233,0.35);
+  transition: transform .22s ease;
+  display: flex; flex-direction: column; justify-content: space-between; min-height: 200px;
+}
+.weather-card:hover { transform: translateY(-3px); }
+.weather-temp-txt {
+  font-size: 2.6rem; font-weight: 800; line-height: 1;
+}
+
+/* Chart card */
+.chart-card { background: linear-gradient(160deg, #f0fdf8 0%, #f8fafc 100%); }
+.chip-box {
+  background: #fff; border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px; padding: 10px 8px; text-align: center;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.chip-box:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+/* Table */
+.db-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+.db-table thead th {
+  background: #f8fafc; color: #64748b; font-size: 0.7rem;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.8rem 0.9rem; border-bottom: 2px solid #f1f5f9;
+}
+.db-table tbody td {
+  padding: 0.7rem 0.9rem; color: #1e293b;
+  border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+}
+.db-table tbody tr:last-child td { border-bottom: none; }
+.db-table tbody tr { transition: background .15s ease; }
+.db-table tbody tr:hover td { background: #f8fafc; }
+.db-table tbody tr.row-paid   td { background: #f0fdf4; }
+.db-table tbody tr.row-partial td { background: #fefce8; }
+.db-table tbody tr.row-unpaid  td { background: #fef2f2; }
+.db-table tbody tr.row-paid    td:first-child { border-left: 3px solid #16a34a; }
+.db-table tbody tr.row-partial td:first-child { border-left: 3px solid #ca8a04; }
+.db-table tbody tr.row-unpaid  td:first-child { border-left: 3px solid #dc2626; }
+
+/* soft badge pills */
+.spill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 99px;
+  font-size: 0.68rem; font-weight: 600;
+}
+.spill-blue   { background: #eff6ff; color: #2563eb; }
+.spill-green  { background: #f0fdf4; color: #16a34a; }
+.spill-gray   { background: #f1f5f9; color: #64748b; }
+.spill-red    { background: #fef2f2; color: #dc2626; }
+.spill-yellow { background: #fefce8; color: #854d0e; }
+.spill-cyan   { background: #ecfeff; color: #0891b2; }
+
+/* section eyebrow label */
+.eyebrow {
+  font-size: 0.67rem; color: #2a9d8f; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase;
+}
+
+/* live dot */
+.live-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #22c55e; margin-right: 5px;
+  box-shadow: 0 0 0 0 rgba(34,197,94,0.5);
+  animation: live-pulse 2s infinite;
+}
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+</style>
+
+<!-- ── Greeting banner ─────────────────────────────── -->
+<div class="mb-4" style="background:linear-gradient(120deg,#2a9d8f 0%,#1e7a6e 60%,#0d4f4f 100%);border-radius:22px;padding:1.6rem 1.8rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 28px rgba(42,157,143,0.35);position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
+  <div style="position:absolute;right:60px;bottom:-80px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
+  <div>
+    <div style="font-size:0.72rem;color:#a7f3d0;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">
+      <span class="live-dot"></span>HOTEL MANAGER
+    </div>
+    <h4 class="fw-bold mb-1" style="color:#fff;font-size:1.35rem;">
+      สวัสดี, {{ current_user.full_name }} 👋
+    </h4>
+    <div style="color:#a7f3d0;font-size:0.88rem;">
+      <i class="bi bi-calendar3 me-1"></i>{{ today.strftime('%A %d %B %Y') }}
+    </div>
+  </div>
+  <div class="text-end" style="position:relative;">
+    <div style="font-size:2.8rem;font-weight:800;line-height:1;color:#fff;">{{ total_rooms }}</div>
+    <div style="font-size:0.78rem;color:#a7f3d0;">ห้องพักทั้งหมด</div>
+  </div>
+</div>
+
+{% if available == 0 %}
+<div class="mb-4 d-flex align-items-center gap-3" style="background:linear-gradient(120deg,#dc2626,#b91c1c);border-radius:16px;padding:1rem 1.5rem;box-shadow:0 6px 24px rgba(220,38,38,0.35);animation:fullPulse 2s ease-in-out infinite;">
+  <div style="font-size:2rem;line-height:1;">🏨</div>
+  <div>
+    <div style="color:#fff;font-size:1.25rem;font-weight:800;line-height:1;">ห้องเต็มทุกห้อง!</div>
+    <div style="color:rgba(255,255,255,0.8);font-size:0.85rem;margin-top:3px;">ไม่มีห้องว่างในขณะนี้ — ห้องพักทั้ง {{ total_rooms }} ห้องถูกจองแล้ว</div>
+  </div>
+  <div class="ms-auto" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:0.5rem 1rem;text-align:center;">
+    <div style="color:#fff;font-size:1.6rem;font-weight:800;line-height:1;">{{ total_rooms }}/{{ total_rooms }}</div>
+    <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">ห้อง</div>
+  </div>
+</div>
+<style>
+@keyframes fullPulse {
+  0%,100% { box-shadow: 0 6px 24px rgba(220,38,38,0.35); }
+  50%      { box-shadow: 0 8px 32px rgba(220,38,38,0.6); }
+}
+</style>
+{% endif %}
+
+<!-- ── 4 Stat Cards ────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="db-stat h-100" style="background:linear-gradient(135deg,#0891b2,#0369a1);">
+      <span class="stat-icon"><i class="bi bi-building"></i></span>
+      <div class="stat-num">{{ total_rooms }}</div>
+      <div class="stat-lbl">ห้องทั้งหมด</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="db-stat h-100" style="background:linear-gradient(135deg,#10b981,#059669);">
+      <span class="stat-icon"><i class="bi bi-check-circle-fill"></i></span>
+      <div class="stat-num">{{ available }}</div>
+      <div class="stat-lbl">ห้องว่าง</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="db-stat h-100" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+      <span class="stat-icon"><i class="bi bi-person-fill"></i></span>
+      <div class="stat-num">{{ occupied }}</div>
+      <div class="stat-lbl">มีผู้เข้าพัก</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="db-stat h-100" style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+      <span class="stat-icon"><i class="bi bi-tools"></i></span>
+      <div class="stat-num">{{ maintenance }}</div>
+      <div class="stat-lbl">ซ่อมบำรุง</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Today Row ────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <!-- Check-in -->
+  <div class="col-md-{% if perms.view_reports %}3{% else %}4{% endif %}">
+    <div class="db-card p-3 h-100">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="today-head-icon" style="background:#eff6ff;color:#2563eb;">
+          <i class="bi bi-box-arrow-in-right"></i>
+        </div>
+        <div>
+          <div class="eyebrow">เช็คอินวันนี้ (รอรับ)</div>
+          <div class="today-count" style="color:#2563eb;">{{ checkin_today }}</div>
+          <div style="font-size:0.72rem;color:#94a3b8;">ห้อง</div>
+        </div>
+      </div>
+      {% if checkin_bookings %}
+      <div id="checkinList" style="max-height:240px;overflow-y:auto;">
+        {% for b in checkin_bookings %}
+        <div class="bk-row" id="checkin-row-{{ b.id }}">
+          <div style="min-width:0;flex:1;">
+            <span class="room-pill blue me-1">{{ b.room.room_number }}</span>
+            <strong style="font-size:0.82rem;">{{ b.member.name if b.member else b.guest_name or '-' }}</strong>
+            {% if b.member and b.member.phone %}
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:2px;"><i class="bi bi-telephone me-1"></i>{{ b.member.phone }}</div>
+            {% endif %}
+          </div>
+          <button class="btn-act btn-act-in ms-2" onclick="quickCheckin({{ b.id }})">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Check In
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Check-out -->
+  <div class="col-md-{% if perms.view_reports %}3{% else %}4{% endif %}">
+    <div class="db-card p-3 h-100">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="today-head-icon" style="background:#ecfeff;color:#0891b2;">
+          <i class="bi bi-box-arrow-right"></i>
+        </div>
+        <div>
+          <div class="eyebrow">เช็คเอาต์วันนี้</div>
+          <div class="today-count" style="color:#0891b2;">{{ checkout_today }}</div>
+          <div style="font-size:0.72rem;color:#94a3b8;">ห้อง</div>
+        </div>
+      </div>
+      {% if checkout_bookings %}
+      <div id="checkoutList" style="max-height:240px;overflow-y:auto;">
+        {% for b in checkout_bookings %}
+        <div class="bk-row" id="checkout-row-{{ b.id }}">
+          <div style="min-width:0;flex:1;">
+            <span class="room-pill cyan me-1">{{ b.room.room_number }}</span>
+            <strong style="font-size:0.82rem;">{{ b.member.name if b.member else b.guest_name or '-' }}</strong>
+            {% if b.member and b.member.phone %}
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:2px;"><i class="bi bi-telephone me-1"></i>{{ b.member.phone }}</div>
+            {% endif %}
+            <div style="margin-top:4px;">
+              {% if b.security_deposit_type == 'none' %}
+                <span class="spill spill-gray">ไม่มีเงินประกัน</span>
+              {% elif b.security_deposit_type == 'id_card' %}
+                <span class="spill spill-yellow"><i class="bi bi-card-text"></i>บัตรประชาชน</span>
+              {% elif b.security_deposit_type == 'cash' %}
+                <span class="spill spill-green"><i class="bi bi-cash"></i>เงินสด ฿{{ "{:,.0f}".format(b.security_deposit) }}</span>
+              {% else %}
+                <span class="spill spill-gray">{{ b.security_deposit_note or 'อื่นๆ' }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <button class="btn-act btn-act-out ms-2" onclick="quickCheckout({{ b.id }})">
+            <i class="bi bi-box-arrow-right me-1"></i>Check Out
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if perms.view_reports %}
+  <!-- Income -->
+  <div class="col-md-3">
+    <div class="db-card p-3 h-100" style="background:linear-gradient(160deg,#f0fdf9 0%,#fff 100%);">
+      <div class="d-flex align-items-center gap-3">
+        <div class="today-head-icon" style="background:#d1fae5;color:#059669;">
+          <i class="bi bi-cash-stack"></i>
+        </div>
+        <div>
+          <div class="eyebrow">รายได้เดือนนี้</div>
+          <div style="font-size:1.55rem;font-weight:800;color:#059669;line-height:1.15;">฿{{ "{:,.0f}".format(month_income) }}</div>
+          <div style="font-size:0.72rem;color:#94a3b8;">บาท</div>
+        </div>
+      </div>
+      <div class="mt-3" style="border-top:1px solid #f1f5f9;padding-top:0.75rem;">
+        <div style="font-size:0.72rem;color:#94a3b8;"><i class="bi bi-graph-up-arrow me-1" style="color:#10b981;"></i>ข้อมูลยอดขายประจำเดือน</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Weather -->
+  <div class="col-md-{% if perms.view_reports %}3{% else %}4{% endif %}">
+    <div class="weather-card h-100" id="weatherCard">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div style="font-size:0.68rem;color:rgba(255,255,255,0.75);font-weight:600;letter-spacing:0.06em;" id="weatherDate">—</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;" id="weatherTime">—</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.65);margin-top:2px;" id="weatherLocation">กำลังโหลด...</div>
+        </div>
+        <div id="weatherIcon" style="font-size:3rem;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.2));">⏳</div>
+      </div>
+      <div>
+        <div class="weather-temp-txt" id="weatherTemp">—</div>
+        <div style="font-size:0.85rem;color:rgba(255,255,255,0.85);margin-top:2px;" id="weatherDesc">—</div>
+        <div class="d-flex gap-3 mt-2" style="font-size:0.73rem;color:rgba(255,255,255,0.75);">
+          <span><i class="bi bi-droplet-fill me-1"></i><span id="weatherHumidity">—</span>%</span>
+          <span><i class="bi bi-wind me-1"></i><span id="weatherWind">—</span> km/h</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Chart + Recent Bookings ────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <!-- Room Status Chart -->
+  <div class="col-lg-4">
+    <div class="db-card chart-card h-100 p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <div class="eyebrow"><span class="live-dot"></span>Live Status</div>
+          <div class="fw-bold mt-1" style="font-size:1rem;color:#1e293b;">สถานะห้องพัก</div>
+        </div>
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,#2a9d8f,#1e7a6e);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(42,157,143,0.4);">
+          <i class="bi bi-building text-white" style="font-size:1.05rem;"></i>
+        </div>
+      </div>
+
+      <div style="max-width:178px;width:100%;position:relative;margin:0 auto;">
+        <canvas id="roomChart"></canvas>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+          <div style="font-size:2rem;font-weight:800;line-height:1;color:#2a9d8f;" id="occupancyPct">—</div>
+          <div style="font-size:0.6rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-top:2px;">OCCUPANCY</div>
+        </div>
+      </div>
+
+      <div class="row g-2 mt-4">
+        <div class="col-4">
+          <div class="chip-box">
+            <div style="font-size:1.45rem;font-weight:800;color:#10b981;line-height:1;" id="stat_avail">—</div>
+            <div style="font-size:0.62rem;color:#94a3b8;font-weight:600;margin-top:3px;">ว่าง</div>
+            <div style="width:22px;height:3px;background:#34d399;border-radius:99px;margin:5px auto 0;"></div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="chip-box">
+            <div style="font-size:1.45rem;font-weight:800;color:#f59e0b;line-height:1;" id="stat_occ">—</div>
+            <div style="font-size:0.62rem;color:#94a3b8;font-weight:600;margin-top:3px;">เข้าพัก</div>
+            <div style="width:22px;height:3px;background:#fb923c;border-radius:99px;margin:5px auto 0;"></div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="chip-box">
+            <div style="font-size:1.45rem;font-weight:800;color:#ef4444;line-height:1;" id="stat_maint">—</div>
+            <div style="font-size:0.62rem;color:#94a3b8;font-weight:600;margin-top:3px;">ซ่อมบำรุง</div>
+            <div style="width:22px;height:3px;background:#f87171;border-radius:99px;margin:5px auto 0;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+          <div id="occupancyProgress" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#5eead4,#2a9d8f,#1e7a6e);width:0%;transition:width 1.4s cubic-bezier(.4,0,.2,1);"></div>
+        </div>
+        <div class="d-flex justify-content-between mt-2" style="font-size:0.7rem;">
+          <span style="color:#94a3b8;">อัตราการเข้าพัก</span>
+          <span id="occupancyBar" style="color:#2a9d8f;font-weight:700;">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Bookings -->
+  <div class="col-lg-8">
+    <div class="db-card h-100" style="overflow:hidden;">
+      <div class="d-flex justify-content-between align-items-center px-4 pt-4 pb-3">
+        <div>
+          <div class="eyebrow">Recent Activity</div>
+          <div class="fw-bold mt-1" style="font-size:1rem;color:#1e293b;">
+            <i class="bi bi-clock-history me-1" style="color:#2a9d8f;"></i>การจองล่าสุด
+          </div>
+        </div>
+        <a href="/rooms" class="btn btn-sm btn-primary" style="border-radius:10px;padding:0.4rem 0.9rem;font-size:0.8rem;">
+          <i class="bi bi-calendar3 me-1"></i>ดูตารางห้อง
+        </a>
+      </div>
+
+      <div class="table-responsive">
+        <table class="db-table">
+          <thead>
+            <tr>
+              <th class="ps-4">ห้อง</th>
+              <th>ผู้เข้าพัก</th>
+              <th>เช็คอิน</th>
+              <th>เช็คเอาต์</th>
+              <th>ยอดรวม</th>
+              <th>ค้างชำระ</th>
+              <th>สถานะ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in recent_bookings %}
+            {% set is_paid    = b.outstanding_balance <= 0 %}
+            {% set is_partial = (not is_paid) and b.deposit_amount > 0 %}
+            {% set is_unpaid  = (not is_paid) and b.deposit_amount == 0 %}
+            <tr class="{% if is_paid %}row-paid{% elif is_partial %}row-partial{% else %}row-unpaid{% endif %}">
+              <td class="ps-4">
+                <span class="room-pill {% if b.status == 'checked_out' %}{% elif b.status == 'checked_in' %}{% else %}blue{% endif %}">
+                  {{ b.room.room_number }}
+                </span>
+              </td>
+              <td>{{ b.member.name if b.member else b.guest_name or '-' }}</td>
+              <td style="color:#64748b;">{{ b.check_in_date.strftime('%d/%m/%y') }}</td>
+              <td style="color:#64748b;">{{ b.check_out_date.strftime('%d/%m/%y') }}</td>
+              <td style="font-weight:600;">฿{{ "{:,.0f}".format(b.total_price) }}</td>
+              <td>
+                <span style="color:{% if b.outstanding_balance > 0 %}#dc2626{% else %}#16a34a{% endif %};font-weight:{% if b.outstanding_balance > 0 %}700{% else %}500{% endif %};">
+                  ฿{{ "{:,.0f}".format(b.outstanding_balance) }}
+                </span>
+              </td>
+              <td>
+                {% if b.status == 'confirmed' %}<span class="spill spill-blue">ยืนยันแล้ว</span>
+                {% elif b.status == 'checked_in' %}<span class="spill spill-green">เช็คอินแล้ว</span>
+                {% elif b.status == 'checked_out' %}<span class="spill spill-gray">เช็คเอาต์</span>
+                {% elif b.status == 'cancelled' %}<span class="spill spill-red">ยกเลิก</span>
+                {% endif %}
+              </td>
+              <td>
+                <button class="btn btn-xs btn-outline-primary" onclick="openBookingDetail({{ b.id }})" style="border-radius:8px;">
+                  <i class="bi bi-pencil"></i>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center py-4" style="color:#94a3b8;">ยังไม่มีข้อมูลการจอง</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_expense %}
+<!-- ── ค่าใช้จ่ายวันนี้ ────────────────────────────── -->
+<div class="row g-3 mb-4" id="expenseSection">
+  <div class="col-12">
+    <div class="db-card" style="overflow:hidden;">
+      <div class="d-flex justify-content-between align-items-center px-4 pt-4 pb-3">
+        <div>
+          <div class="eyebrow">วันนี้เท่านั้น</div>
+          <div class="fw-bold mt-1" style="font-size:1rem;color:#1e293b;">
+            <i class="bi bi-receipt me-1" style="color:#f59e0b;"></i>ค่าใช้จ่ายวันนี้
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          {% if today_expenses %}
+          <span style="background:#fef3c7;color:#92400e;border-radius:99px;padding:4px 14px;font-size:0.8rem;font-weight:700;">
+            รวม ฿{{ "{:,.0f}".format(today_expenses | sum(attribute='amount')) }}
+          </span>
+          {% endif %}
+          <button class="btn btn-sm" style="background:#f59e0b;color:#fff;border-radius:10px;font-size:0.82rem;font-weight:600;"
+                  onclick="openExpenseModal()">
+            <i class="bi bi-plus-lg me-1"></i>บันทึกค่าใช้จ่าย
+          </button>
+        </div>
+      </div>
+
+      {% if today_expenses %}
+      <div class="table-responsive">
+        <table class="db-table">
+          <thead>
+            <tr>
+              <th class="ps-4">หมวดหมู่</th>
+              <th>รายละเอียด</th>
+              <th class="text-end pe-4">จำนวนเงิน</th>
+              {% if can_manage_expenses %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody id="todayExpenseBody">
+            {% for e in today_expenses %}
+            <tr id="exp-row-{{ e.id }}">
+              <td class="ps-4">
+                <span class="spill spill-yellow"><i class="bi bi-tag me-1"></i>{{ e.category }}</span>
+              </td>
+              <td style="color:#64748b;">{{ e.description or '—' }}</td>
+              <td class="text-end pe-4" style="font-weight:700;color:#d97706;">
+                ฿{{ "{:,.0f}".format(e.amount) }}
+              </td>
+              {% if can_manage_expenses %}
+              <td>
+                <button class="btn btn-xs btn-outline-danger" style="border-radius:8px;"
+                        onclick="deleteExpense({{ e.id }})">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-4" style="color:#94a3b8;border-top:1px solid #f1f5f9;">
+        <i class="bi bi-receipt" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
+        ยังไม่มีรายการค่าใช้จ่ายวันนี้
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="border-radius:18px;border:none;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:18px 18px 0 0;border:none;">
+        <h5 class="modal-title fw-bold text-white"><i class="bi bi-receipt me-2"></i>บันทึกค่าใช้จ่าย</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">หมวดหมู่ <span class="text-danger">*</span></label>
+          <select class="form-select" id="exp_category">
+            <option value="">-- เลือกหมวดหมู่ --</option>
+            <option>ค่าน้ำ</option>
+            <option>ค่าไฟ</option>
+            <option>ค่าอินเทอร์เน็ต</option>
+            <option>ค่าซ่อมบำรุง</option>
+            <option>ค่าทำความสะอาด</option>
+            <option>ค่าวัสดุสิ้นเปลือง</option>
+            <option>ค่าอาหาร/เครื่องดื่ม</option>
+            <option>ค่าแรงงาน</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">จำนวนเงิน (บาท) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="exp_amount" min="1" step="1" placeholder="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">รายละเอียด</label>
+          <input type="text" class="form-control" id="exp_desc" placeholder="อธิบายเพิ่มเติม (ถ้ามี)">
+        </div>
+        <div class="alert alert-warning py-2 mb-0" style="font-size:0.82rem;border-radius:10px;">
+          <i class="bi bi-info-circle me-1"></i>รายการจะถูกบันทึกเป็นวันที่ปัจจุบัน และแสดงในแดชบอร์ดวันนี้เท่านั้น
+        </div>
+      </div>
+      <div class="modal-footer" style="border:none;">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius:10px;">ยกเลิก</button>
+        <button class="btn fw-semibold text-white" style="background:#f59e0b;border-radius:10px;"
+                onclick="saveExpense()">
+          <i class="bi bi-save me-1"></i>บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% include "partials/booking_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initWeather();
+  const avail    = {{ available }};
+  const occupied = {{ occupied }};
+  const maint    = {{ maintenance }};
+  const total    = {{ total_rooms }};
+
+  const pct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+  document.getElementById('occupancyPct').textContent  = pct + '%';
+  document.getElementById('occupancyBar').textContent  = pct + '%';
+  document.getElementById('stat_avail').textContent    = avail;
+  document.getElementById('stat_occ').textContent      = occupied;
+  document.getElementById('stat_maint').textContent    = maint;
+  setTimeout(() => { document.getElementById('occupancyProgress').style.width = pct + '%'; }, 120);
+
+  const ctx = document.getElementById('roomChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['ว่าง','เข้าพัก','ซ่อมบำรุง'],
+      datasets: [{
+        data: [avail || 0.01, occupied || 0.01, maint || 0.01],
+        backgroundColor: ['#34d399','#fb923c','#f87171'],
+        hoverBackgroundColor: ['#10b981','#f97316','#ef4444'],
+        borderColor: '#f0fdf9',
+        borderWidth: 3,
+        borderRadius: 10,
+        spacing: 3,
+        hoverOffset: 10,
+      }]
+    },
+    options: {
+      cutout: '73%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e293b', padding: 11, cornerRadius: 12,
+          callbacks: { label: c => `  ${c.label}: ${Math.round(c.parsed)} ห้อง` }
+        }
+      },
+      animation: { animateRotate: true, duration: 1000, easing: 'easeInOutQuart' }
+    }
+  });
+
+  const sel = document.getElementById('bm_staff_id');
+  if (sel) {
+    {% for s in staff_list %}
+    sel.innerHTML += `<option value="{{ s.id }}">{{ s.full_name }}</option>`;
+    {% endfor %}
+  }
+  loadRoomsToModal();
+});
+
+// ── Weather ──────────────────────────────────────────
+const WMO = {
+  0:['☀️','แดดจัด'], 1:['🌤️','แดดมีเมฆบ้าง'], 2:['⛅','มีเมฆบางส่วน'], 3:['☁️','ครึ้ม'],
+  45:['🌫️','หมอก'], 48:['🌫️','หมอกน้ำแข็ง'],
+  51:['🌦️','ฝนปรอยเล็กน้อย'], 53:['🌦️','ฝนปรอย'], 55:['🌧️','ฝนปรอยหนัก'],
+  61:['🌧️','ฝนเล็กน้อย'], 63:['🌧️','ฝนตก'], 65:['🌧️','ฝนหนัก'],
+  80:['🌦️','ฝนกระจาย'], 81:['🌧️','ฝนกระจายหนัก'], 82:['⛈️','ฝนพายุ'],
+  95:['⛈️','ฟ้าผ่า'], 96:['⛈️','พายุลูกเห็บ'], 99:['⛈️','พายุลูกเห็บหนัก'],
+};
+function wmoLookup(c){ return WMO[c]||['🌡️','ไม่ทราบสภาพอากาศ']; }
+
+const TH_DAYS   = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+function updateClock() {
+  const n = new Date();
+  document.getElementById('weatherDate').textContent =
+    `วัน${TH_DAYS[n.getDay()]}ที่ ${n.getDate()} ${TH_MONTHS[n.getMonth()]} ${n.getFullYear()+543}`;
+  document.getElementById('weatherTime').textContent =
+    n.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+async function fetchWeather(lat,lon) {
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&wind_speed_unit=kmh&timezone=Asia%2FBangkok`);
+  const d = await r.json(); const c = d.current;
+  const [icon,desc] = wmoLookup(c.weather_code);
+  document.getElementById('weatherIcon').textContent     = icon;
+  document.getElementById('weatherTemp').textContent     = Math.round(c.temperature_2m)+'°C';
+  document.getElementById('weatherDesc').textContent     = desc;
+  document.getElementById('weatherHumidity').textContent = c.relative_humidity_2m;
+  document.getElementById('weatherWind').textContent     = Math.round(c.wind_speed_10m);
+}
+
+async function initWeather() {
+  updateClock(); setInterval(updateClock,1000);
+  const LAT=13.7563, LON=100.5018;
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => { document.getElementById('weatherLocation').textContent='ตำแหน่งปัจจุบัน'; fetchWeather(p.coords.latitude,p.coords.longitude); },
+      () => { document.getElementById('weatherLocation').textContent='กรุงเทพมหานคร'; fetchWeather(LAT,LON); }
+    );
+  } else { document.getElementById('weatherLocation').textContent='กรุงเทพมหานคร'; fetchWeather(LAT,LON); }
+  setInterval(() => {
+    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>fetchWeather(p.coords.latitude,p.coords.longitude),()=>fetchWeather(LAT,LON));
+  }, 600000);
+}
+
+async function quickCheckin(bookingId) {
+  if (!confirm('ยืนยันการเช็คอิน?')) return;
+  const res = await fetch(`/api/bookings/${bookingId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'checked_in'})});
+  if (res.ok) {
+    document.getElementById(`checkin-row-${bookingId}`)?.remove();
+    const list = document.getElementById('checkinList');
+    if (list && !list.children.length) list.remove();
+    showToast('เช็คอินเรียบร้อย');
+    setTimeout(()=>location.reload(),800);
+  } else { showToast('เกิดข้อผิดพลาด','danger'); }
+}
+
+// ── Expense ──────────────────────────────────────────
+function openExpenseModal() {
+  document.getElementById('exp_category').value = '';
+  document.getElementById('exp_amount').value   = '';
+  document.getElementById('exp_desc').value     = '';
+  new bootstrap.Modal(document.getElementById('expenseModal')).show();
+}
+
+async function saveExpense() {
+  const category = document.getElementById('exp_category').value;
+  const amount   = document.getElementById('exp_amount').value;
+  const desc     = document.getElementById('exp_desc').value;
+  if (!category) { showToast('กรุณาเลือกหมวดหมู่', 'danger'); return; }
+  if (!amount || parseFloat(amount) <= 0) { showToast('กรุณาระบุจำนวนเงิน', 'danger'); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const res = await fetch('/api/expenses', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ category, amount: parseFloat(amount), description: desc, expense_date: today })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    showToast('บันทึกค่าใช้จ่ายเรียบร้อย');
+    bootstrap.Modal.getInstance(document.getElementById('expenseModal')).hide();
+    setTimeout(() => location.reload(), 600);
+  } else {
+    showToast(data.detail || 'บันทึกไม่สำเร็จ', 'danger');
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('ลบรายการค่าใช้จ่ายนี้?')) return;
+  const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById(`exp-row-${id}`)?.remove();
+    showToast(data.message);
+  } else {
+    showToast(data.detail || 'ลบไม่สำเร็จ', 'danger');
+  }
+}
+
+async function loadRoomsToModal() {
+  const res = await fetch('/api/rooms');
+  const rooms = await res.json();
+  window.ROOMS_LIST = rooms;
+  const sel = document.getElementById('bm_room_select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- เลือกห้อง --</option>';
+  rooms.forEach(r => {
+    sel.innerHTML += `<option value="${r.id}" data-price="${r.price_per_night}">${r.room_number} — ${r.name} (฿${r.price_per_night.toLocaleString()}/คืน)</option>`;
+  });
+  sel.addEventListener('change', () => {
+    const opt = sel.options[sel.selectedIndex];
+    document.getElementById('bm_room_price').value = opt.dataset.price || 0;
+    calcTotal();
+  });
+}
+</script>
+{% endblock %}

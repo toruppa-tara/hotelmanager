@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>บิล #{{ invoice_number }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 13px; color: #222; background: #f5f5f5; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 20mm 18mm; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #1a56db; padding-bottom: 15px; }
+    .logo-area img { max-height: 80px; max-width: 150px; }
+    .logo-area .no-logo { font-size: 28px; font-weight: bold; color: #1a56db; }
+    .company-info { text-align: right; }
+    .company-info h2 { font-size: 18px; color: #1a56db; font-weight: bold; }
+    .company-info p { font-size: 12px; color: #555; margin-top: 2px; }
+    .invoice-title { text-align: center; margin: 18px 0 15px; }
+    .invoice-title h1 { font-size: 22px; font-weight: bold; color: #1a56db; letter-spacing: 2px; }
+    .invoice-title .inv-num { font-size: 14px; color: #666; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .info-box { background: #f8f9fa; border-radius: 6px; padding: 10px 14px; }
+    .info-box h6 { font-size: 10px; text-transform: uppercase; color: #888; margin-bottom: 6px; letter-spacing: 1px; }
+    .info-box p { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .info-box .sub { font-weight: 400; font-size: 12px; color: #555; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table.items thead tr { background: #1a56db; color: #fff; }
+    table.items thead th { padding: 8px 10px; font-size: 12px; text-align: left; }
+    table.items tbody tr:nth-child(even) { background: #f8faff; }
+    table.items tbody td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #e9ecef; }
+    table.items .text-right { text-align: right; }
+    .totals { margin-left: auto; width: 260px; }
+    .totals table { width: 100%; }
+    .totals td { padding: 4px 8px; font-size: 13px; }
+    .totals .total-row { font-weight: bold; font-size: 15px; color: #1a56db; border-top: 2px solid #1a56db; }
+    .payment-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+    .payment-info h6 { font-size: 11px; text-transform: uppercase; color: #16a34a; margin-bottom: 6px; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+    .status-confirmed { background: #dbeafe; color: #1d4ed8; }
+    .status-checked_in { background: #dcfce7; color: #15803d; }
+    .status-checked_out { background: #f1f5f9; color: #475569; }
+    .footer { margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .footer .notes { font-size: 12px; color: #666; max-width: 300px; }
+    .signature-area { text-align: center; }
+    .sig-line { border-top: 1px solid #333; width: 160px; margin: 40px auto 4px; }
+    .sig-label { font-size: 11px; color: #666; }
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; padding: 15mm 15mm; box-shadow: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+<!-- Print Controls (hidden on print) -->
+<div class="no-print" style="background:#1a56db;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px">
+  <span style="font-weight:bold;font-size:15px">Hotel Manager — ใบเสร็จรับเงิน</span>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button onclick="downloadPdf()" id="btnPdf" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);padding:6px 16px;border-radius:5px;font-weight:bold;cursor:pointer">⬇ PDF</button>
+    <button onclick="window.print()" style="background:#fff;color:#1a56db;border:none;padding:6px 18px;border-radius:5px;font-weight:bold;cursor:pointer">🖨️ พิมพ์</button>
+    <button onclick="window.close()" style="background:transparent;color:#fff;border:1px solid #fff;padding:6px 14px;border-radius:5px;cursor:pointer">✕ ปิด</button>
+  </div>
+</div>
+
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      {% if inv_setting and inv_setting.logo_filename %}
+        <img src="/uploads/logos/{{ inv_setting.logo_filename }}" alt="Logo">
+      {% else %}
+        <div class="no-logo">🏨</div>
+      {% endif %}
+    </div>
+    <div class="company-info">
+      <h2>{{ inv_setting.company_name if inv_setting and inv_setting.company_name else 'โรงแรม' }}</h2>
+      {% if inv_setting %}
+        {% if inv_setting.address %}<p>{{ inv_setting.address|replace('\n','<br>')|safe }}</p>{% endif %}
+        {% if inv_setting.phone %}<p>โทร: {{ inv_setting.phone }}</p>{% endif %}
+        {% if inv_setting.tax_id %}<p>เลขผู้เสียภาษี: {{ inv_setting.tax_id }}</p>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Invoice Title -->
+  <div class="invoice-title">
+    <h1>ใบเสร็จรับเงิน</h1>
+    <div class="inv-num">เลขที่: {{ invoice_number }} &nbsp;|&nbsp; วันที่: {{ issue_date.strftime('%d/%m/') }}{{ issue_date.year + 543 }}</div>
+  </div>
+
+  <!-- Info Grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <h6>ข้อมูลลูกค้า</h6>
+      <p>{{ booking.member.name if booking.member else booking.guest_name or 'ลูกค้าทั่วไป' }}</p>
+      {% if booking.member %}
+        {% if booking.member.phone %}<p class="sub">โทร: {{ booking.member.phone }}</p>{% endif %}
+        {% if booking.member.is_corporate and booking.member.company_name %}
+          <p class="sub">บริษัท: {{ booking.member.company_name }}</p>
+        {% endif %}
+        {% if booking.member.address %}<p class="sub">{{ booking.member.address }}</p>{% endif %}
+      {% endif %}
+    </div>
+    <div class="info-box">
+      <h6>ข้อมูลการเข้าพัก</h6>
+      <p>ห้อง {{ booking.room.room_number }} — {{ booking.room.name }}</p>
+      <p class="sub">เช็คอิน: {{ booking.check_in_date.strftime('%d/%m/') }}{{ booking.check_in_date.year + 543 }}</p>
+      <p class="sub">เช็คเอาต์: {{ booking.check_out_date.strftime('%d/%m/') }}{{ booking.check_out_date.year + 543 }}</p>
+      <p class="sub">จำนวน {{ booking.num_nights }} คืน</p>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>รายการ</th>
+        <th class="text-right" style="width:100px">ราคา/คืน</th>
+        <th class="text-right" style="width:80px">จำนวนคืน</th>
+        <th class="text-right" style="width:110px">รวม</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          ค่าห้องพัก {{ booking.room.room_number }} ({{ booking.room.name }})<br>
+          <small style="color:#666">{{ booking.check_in_date.strftime('%d/%m/') }}{{ booking.check_in_date.year+543 }} — {{ booking.check_out_date.strftime('%d/%m/') }}{{ booking.check_out_date.year+543 }}</small>
+        </td>
+        <td class="text-right">{{ "{:,.0f}".format(booking.room_price) }}</td>
+        <td class="text-right">{{ booking.num_nights }}</td>
+        <td class="text-right"><strong>{{ "{:,.0f}".format(booking.total_price) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <table>
+      <tr><td>ยอดรวม</td><td class="text-right">฿{{ "{:,.0f}".format(booking.total_price) }}</td></tr>
+      <tr><td>มัดจำแล้ว{% if booking.deposit_type %} ({{ 'โอน' if booking.deposit_type == 'transfer' else 'สด' }}){% endif %}</td>
+          <td class="text-right" style="color:#16a34a">- ฿{{ "{:,.0f}".format(booking.deposit_amount) }}</td></tr>
+      <tr class="total-row">
+        <td>ยอดคงเหลือ</td>
+        <td class="text-right">฿{{ "{:,.0f}".format(booking.outstanding_balance) }}</td>
+      </tr>
+    </table>
+  </div>
+
+
+  {% if booking.notes %}
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;margin-bottom:12px">
+    <strong style="font-size:11px;color:#92400e">หมายเหตุ:</strong>
+    <p style="font-size:12px;margin-top:3px">{{ booking.notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="notes">
+      {% if inv_setting and inv_setting.footer_notes %}
+        {{ inv_setting.footer_notes }}
+      {% else %}
+        ขอบคุณที่ใช้บริการ
+      {% endif %}
+      <div style="margin-top:6px;font-size:11px;color:#aaa">พิมพ์วันที่: {{ issue_date.strftime('%d/%m/') }}{{ issue_date.year + 543 }}</div>
+    </div>
+    <div class="signature-area">
+      <div class="sig-line"></div>
+      <div class="sig-label">ผู้รับเงิน / เจ้าหน้าที่</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function downloadPdf() {
+    const btn = document.getElementById('btnPdf');
+    btn.disabled = true;
+    btn.textContent = '⏳ ...';
+    html2pdf().set({
+      margin: 0,
+      filename: '{{ invoice_number }}.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(document.querySelector('.page')).save().then(() => {
+      btn.disabled = false;
+      btn.textContent = '⬇ PDF';
+    });
+  }
+</script>
+</body>
+</html>

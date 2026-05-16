@@ -1,0 +1,862 @@
+{% extends "base.html" %}
+{% block title %}เงินเดือนพนักงาน — Hotel Manager{% endblock %}
+{% block breadcrumb %}เงินเดือนพนักงาน{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold mb-4"><i class="bi bi-wallet2 me-2 text-primary"></i>
+  {% if can_manage %}ระบบเงินเดือนพนักงาน{% else %}บันทึกเบิกเงินของฉัน{% endif %}
+</h5>
+
+{% if not can_manage %}
+<!-- ── Staff view ──────────────────────────────────────────────── -->
+<div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-info-circle-fill"></i>
+  <span>หลังบันทึกแล้วจะ<strong>ไม่สามารถแก้ไขหรือลบ</strong>รายการได้ และระบบจะบันทึกชื่อผู้บันทึกพร้อมวันเวลาไว้ทุกครั้ง</span>
+</div>
+
+<!-- Month selector + action buttons -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">เดือน</label>
+        <select class="form-select" id="pay_month">
+          {% set mn = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"] %}
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {% if i == now_month %}selected{% endif %}>{{ mn[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">ปี (พ.ศ.)</label>
+        <input type="number" class="form-control" id="pay_year" value="{{ now_year + 543 }}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" onclick="staffLoadAll()"><i class="bi bi-search me-1"></i>ดูรายการ</button>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-danger w-100" onclick="openWithdrawForm()"><i class="bi bi-cash-coin me-1"></i>เบิกเงิน</button>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-warning w-100 text-dark" onclick="openAbsenceForm()"><i class="bi bi-calendar-x me-1"></i>บันทึกวันหยุด</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Withdrawal list -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-danger"></i>รายการเบิกเงิน</h6>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+            <thead class="table-light">
+              <tr><th>วันที่</th><th>พนักงาน</th><th class="text-end">จำนวน</th><th>เหตุผล</th><th>บันทึกโดย</th><th>เวลาบันทึก</th></tr>
+            </thead>
+            <tbody id="withdrawalsList">
+              <tr><td colspan="6" class="text-center text-muted py-3">กด "ดูรายการ"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Absence list + summary -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0"><i class="bi bi-calendar-x me-2 text-warning"></i>รายการวันหยุด</h6>
+        <div id="absenceSummaryBadge"></div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+            <thead class="table-light">
+              <tr><th>วันที่</th><th>พนักงาน</th><th>เหตุผล</th><th>บันทึกโดย</th><th>เวลาบันทึก</th></tr>
+            </thead>
+            <tbody id="absencesList">
+              <tr><td colspan="5" class="text-center text-muted py-3">กด "ดูรายการ"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- ── Manager / Owner full view ──────────────────────────────── -->
+
+<!-- Month Selector -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">เดือน</label>
+        <select class="form-select" id="pay_month">
+          {% set mn = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"] %}
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {% if i == now_month %}selected{% endif %}>{{ mn[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">ปี (พ.ศ.)</label>
+        <input type="number" class="form-control" id="pay_year" value="{{ now_year + 543 }}">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-primary w-100" onclick="loadPayroll()"><i class="bi bi-search me-1"></i>ดูสรุป</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payroll Summary Table -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold mb-0"><i class="bi bi-table me-2"></i>สรุปเงินเดือน</h6>
+    {% if is_owner %}
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-warning" onclick="openBonusSettingModal()">
+        <i class="bi bi-gift me-1"></i>ตั้งค่าโบนัส
+      </button>
+      <button class="btn btn-sm btn-outline-primary" onclick="openWageSettingModal()">
+        <i class="bi bi-sliders me-1"></i>ตั้งค่าค่าจ้าง
+      </button>
+    </div>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:0.85rem;">
+        <thead class="table-dark">
+          <tr>
+            <th>พนักงาน</th>
+            <th>ประเภท</th>
+            <th class="text-end">อัตรา</th>
+            <th class="text-center">วัน/เดือน</th>
+            <th class="text-center">วันหยุด</th>
+            <th class="text-center">วันทำงาน</th>
+            <th class="text-end">รายได้พื้น</th>
+            <th class="text-end text-warning">โบนัสไม่หยุด</th>
+            <th class="text-end text-info">เงินพิเศษ</th>
+            <th class="text-end fw-bold">รวมรายได้</th>
+            <th class="text-end text-danger">เบิกแล้ว</th>
+            <th class="text-end text-primary">คงเหลือ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="payrollSummaryBody">
+          <tr><td colspan="13" class="text-center text-muted py-4">กด "ดูสรุป" เพื่อโหลดข้อมูล</td></tr>
+        </tbody>
+        <tfoot class="table-light fw-bold" id="payrollTotals" style="display:none">
+          <tr>
+            <td colspan="6">รวม</td>
+            <td class="text-end" id="tot_base">-</td>
+            <td class="text-end text-warning" id="tot_noab">-</td>
+            <td class="text-end text-info" id="tot_special">-</td>
+            <td class="text-end" id="tot_earned">-</td>
+            <td class="text-end text-danger" id="tot_withdraw">-</td>
+            <td class="text-end text-primary" id="tot_net">-</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Withdrawals + Absences Row -->
+<div class="row g-3">
+  <!-- Withdrawals -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-danger"></i>รายการเบิกเงิน</h6>
+        <button class="btn btn-sm btn-danger" onclick="openWithdrawForm()"><i class="bi bi-plus me-1"></i>บันทึกการเบิก</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+            <thead class="table-light">
+              <tr><th>วันที่</th><th>พนักงาน</th><th class="text-end">จำนวน</th><th>เหตุผล</th><th>บันทึกโดย</th><th></th></tr>
+            </thead>
+            <tbody id="withdrawalsList">
+              <tr><td colspan="6" class="text-center text-muted py-3">กด "ดูสรุป" เพื่อโหลดข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Absences -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0"><i class="bi bi-calendar-x me-2 text-warning"></i>บันทึกวันหยุด/ขาดงาน</h6>
+        <button class="btn btn-sm btn-warning text-dark" onclick="openAbsenceForm()"><i class="bi bi-plus me-1"></i>บันทึกวันหยุด</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+            <thead class="table-light">
+              <tr><th>วันที่</th><th>พนักงาน</th><th>เหตุผล</th><th></th></tr>
+            </thead>
+            <tbody id="absencesList">
+              <tr><td colspan="4" class="text-center text-muted py-3">กด "ดูสรุป" เพื่อโหลดข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Modals ──────────────────────────────────────────────────── -->
+
+<!-- Withdrawal Modal -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-2"></i>บันทึกการเบิกเงิน</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">พนักงานที่เบิก <span class="text-danger">*</span></label>
+          <select class="form-select" id="wd_user_id">
+            <option value="">-- เลือกพนักงาน --</option>
+            {% for s in staff %}
+            <option value="{{ s.id }}">{{ s.full_name }} ({{ s.role }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if not can_manage %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold">บันทึกโดย</label>
+          <input type="text" class="form-control" value="{{ self_full_name }}" readonly style="background:#f0fdf4;color:#166534;font-weight:600;">
+          <div class="form-text">บัญชีที่ล็อกอินอยู่ในขณะนี้ — บันทึกอัตโนมัติ</div>
+        </div>
+        {% endif %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold">จำนวนเงิน (บาท) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="wd_amount" min="1" step="1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">วันที่ <span class="text-danger">*</span></label>
+          <input type="text" class="form-control datepick" id="wd_date">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">เหตุผล / หมายเหตุ</label>
+          <textarea class="form-control" id="wd_reason" rows="2"></textarea>
+        </div>
+        {% if not can_manage %}
+        <div class="alert alert-warning py-2 mb-0" style="font-size:0.82rem;">
+          <i class="bi bi-exclamation-triangle me-1"></i>หลังบันทึกแล้ว จะ<strong>ไม่สามารถแก้ไขหรือลบ</strong>รายการนี้ได้
+        </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-danger fw-semibold" onclick="saveWithdrawal()"><i class="bi bi-save me-1"></i>บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Absence Modal -->
+<div class="modal fade" id="absenceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="bi bi-calendar-x me-2"></i>บันทึกวันหยุด / ขาดงาน</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">พนักงาน <span class="text-danger">*</span></label>
+          <select class="form-select" id="ab_user_id">
+            <option value="">-- เลือกพนักงาน --</option>
+            {% for s in staff %}
+            <option value="{{ s.id }}">{{ s.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">วันที่หยุด <span class="text-danger">*</span></label>
+          <!-- Mode toggle -->
+          <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+            <input type="radio" class="btn-check" name="abMode" id="abModeSingle" value="multiple" autocomplete="off" checked>
+            <label class="btn btn-outline-warning" for="abModeSingle">
+              <i class="bi bi-calendar-check me-1"></i>เลือกวันแยก
+            </label>
+            <input type="radio" class="btn-check" name="abMode" id="abModeRange" value="range" autocomplete="off">
+            <label class="btn btn-outline-warning" for="abModeRange">
+              <i class="bi bi-calendar-range me-1"></i>ช่วงวันหยุดยาว
+            </label>
+          </div>
+          <input type="text" class="form-control" id="ab_date"
+                 placeholder="คลิกเพื่อเลือกวัน..." readonly style="cursor:pointer;">
+          <div id="ab_date_preview" class="mt-2 d-flex flex-wrap gap-1"></div>
+          <div id="ab_range_info" class="mt-1 text-muted small" style="display:none;"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">เหตุผล</label>
+          <input type="text" class="form-control" id="ab_reason" placeholder="เช่น ลาป่วย, ลากิจ, วันหยุดประจำสัปดาห์">
+        </div>
+        <div class="alert alert-info py-2 mb-0" style="font-size:0.82rem;">
+          <i class="bi bi-info-circle me-1"></i>วันหยุดที่บันทึกจะถูกหักออกจากวันทำงานของเดือนนั้น ส่งผลต่อการคำนวณค่าจ้างรายวันอัตโนมัติ
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-warning fw-semibold text-dark" onclick="saveAbsence()">
+          <i class="bi bi-save me-1"></i>บันทึก
+          <span id="ab_save_count" class="badge bg-dark ms-1" style="display:none;"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bonus Settings Modal (owner only) -->
+{% if is_owner %}
+<div class="modal fade" id="bonusSettingModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="bi bi-gift me-2"></i>ตั้งค่าระบบโบนัส</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-4">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-trophy-fill text-warning me-1"></i>โบนัสไม่หยุดทั้งเดือน (บาท)
+          </label>
+          <input type="number" class="form-control" id="cfg_no_ab_bonus" min="0" step="100" value="1000">
+          <div class="form-text">พนักงานที่ไม่มีวันหยุดเลยในเดือนนั้นจะได้รับโบนัสนี้อัตโนมัติ</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-calendar-check text-success me-1"></i>วันหยุดฟรี (วัน/เดือน) ก่อนหักค่าจ้าง
+          </label>
+          <input type="number" class="form-control" id="cfg_free_days" min="0" max="31" step="1" value="4">
+          <div class="form-text">วันหยุดช่วงแรกของเดือนที่ไม่หักค่าจ้างรายวัน — เริ่มหักตั้งแต่วันที่ <strong id="cfg_cut_day_preview">5</strong> เป็นต้นไป</div>
+        </div>
+        <div class="alert alert-info py-2 mb-0" style="font-size:0.82rem;">
+          <i class="bi bi-info-circle me-1"></i>ค่านี้มีผลกับพนักงาน <strong>ค่าจ้างรายวัน</strong> เท่านั้น
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-warning fw-semibold text-dark" onclick="saveBonusSettings()">
+          <i class="bi bi-save me-1"></i>บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Wage Setting Modal (owner only) -->
+{% if is_owner %}
+<div class="modal fade" id="wageModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-sliders me-2"></i>ตั้งค่าอัตราค่าจ้างพนักงาน</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <table class="table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>พนักงาน</th>
+              <th style="width:160px">ประเภทค่าจ้าง</th>
+              <th style="width:140px">เงินเดือน (บาท)</th>
+              <th style="width:140px">ค่าจ้างรายวัน (บาท)</th>
+              <th style="width:80px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in staff %}
+            <tr id="wage-row-{{ s.id }}">
+              <td class="fw-semibold align-middle">{{ s.full_name }}</td>
+              <td>
+                <select class="form-select form-select-sm" id="wt_{{ s.id }}" onchange="toggleWageFields({{ s.id }})">
+                  <option value="monthly" {% if (s.wage_type or 'monthly') == 'monthly' %}selected{% endif %}>รายเดือน</option>
+                  <option value="daily"   {% if (s.wage_type or '') == 'daily' %}selected{% endif %}>รายวัน</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm" id="ws_{{ s.id }}"
+                       value="{{ s.salary or 0 }}" min="0"
+                       {% if (s.wage_type or 'monthly') == 'daily' %}style="display:none"{% endif %}>
+              </td>
+              <td>
+                <input type="number" class="form-control form-control-sm" id="wd_{{ s.id }}"
+                       value="{{ s.daily_rate or 0 }}" min="0"
+                       {% if (s.wage_type or 'monthly') != 'daily' %}style="display:none"{% endif %}>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-success" onclick="saveWage({{ s.id }})">
+                  <i class="bi bi-check-lg"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CAN_MANAGE = {{ 'true' if can_manage else 'false' }};
+const IS_OWNER   = {{ 'true' if is_owner else 'false' }};
+
+let _currentYear  = {{ now_year }};
+let _currentMonth = {{ now_month }};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (CAN_MANAGE) loadPayroll();
+  else staffLoadAll();
+});
+
+async function staffLoadAll() {
+  const month = document.getElementById('pay_month').value;
+  const year  = parseInt(document.getElementById('pay_year').value) - 543;
+  const [wdRes, abRes] = await Promise.all([
+    fetch(`/api/payroll/withdrawals?year=${year}&month=${month}`),
+    fetch(`/api/payroll/absences?year=${year}&month=${month}`),
+  ]);
+  renderWithdrawals(await wdRes.json());
+  renderAbsences(await abRes.json());
+}
+
+async function loadPayroll() {
+  const month = document.getElementById('pay_month').value;
+  const year  = parseInt(document.getElementById('pay_year').value) - 543;
+  _currentYear  = year;
+  _currentMonth = parseInt(month);
+  const [sumRes, wdRes, abRes] = await Promise.all([
+    fetch(`/api/payroll/summary?year=${year}&month=${month}`),
+    fetch(`/api/payroll/withdrawals?year=${year}&month=${month}`),
+    fetch(`/api/payroll/absences?year=${year}&month=${month}`),
+  ]);
+  const summary    = await sumRes.json();
+  const withdrawals = await wdRes.json();
+  const absences   = await abRes.json();
+
+  renderSummary(summary);
+  renderWithdrawals(withdrawals);
+  renderAbsences(absences);
+}
+
+function renderSummary(data) {
+  const tbody = document.getElementById('payrollSummaryBody');
+  const roleMap = {owner:'เจ้าของ', manager:'ผู้จัดการ', staff:'พนักงาน'};
+  let totBase=0, totNoAb=0, totSpecial=0, totEarned=0, totW=0, totNet=0;
+
+  tbody.innerHTML = data.length ? data.map(s => {
+    totBase    += s.base_earned;
+    totNoAb    += s.no_ab_bonus;
+    totSpecial += s.special_bonus;
+    totEarned  += s.total_earned;
+    totW       += s.total_withdrawals;
+    totNet     += s.net_payable;
+
+    const isDaily = s.wage_type === 'daily';
+    const rateCell = isDaily
+      ? `<span class="badge bg-info text-dark">฿${Number(s.daily_rate).toLocaleString()}/วัน</span>`
+      : `<span class="badge bg-secondary">฿${Number(s.salary).toLocaleString()}/เดือน</span>`;
+
+    // Absence cell: show total / (free) / effective
+    let abCell, wdCell;
+    if (isDaily) {
+      const abTip = s.absence_count > 0
+        ? `${s.absence_count} วัน<br><small class="text-success">ฟรี ${Math.min(s.absence_count, s.free_days)} / หัก ${s.effective_absences}</small>`
+        : `<span class="text-success fw-semibold">0 วัน</span>`;
+      abCell = `<td class="text-center">${s.days_in_month}</td>
+                <td class="text-center">${abTip}</td>
+                <td class="text-center fw-bold text-success">${s.working_days}</td>`;
+      wdCell = `<td class="text-end">฿${Number(s.base_earned).toLocaleString()}</td>`;
+    } else {
+      abCell = `<td class="text-center text-muted">—</td><td class="text-center text-muted">${s.absence_count||0} วัน</td><td class="text-center text-muted">—</td>`;
+      wdCell = `<td class="text-end">฿${Number(s.base_earned).toLocaleString()}</td>`;
+    }
+
+    const noAbCell = s.no_ab_bonus > 0
+      ? `<td class="text-end text-warning fw-semibold">+฿${Number(s.no_ab_bonus).toLocaleString()} <i class="bi bi-trophy-fill" title="ไม่หยุดทั้งเดือน"></i></td>`
+      : `<td class="text-end text-muted">—</td>`;
+
+    const yr = _currentYear, mo = _currentMonth;
+    const specialCell = `<td class="text-end">
+      <div class="input-group input-group-sm" style="width:120px;margin-left:auto;">
+        <span class="input-group-text p-1" style="font-size:0.75rem;">฿</span>
+        <input type="number" class="form-control p-1" style="font-size:0.75rem;" min="0" step="100"
+               id="sp_${s.user_id}" value="${s.special_bonus||0}"
+               onchange="saveSpecialBonus(${s.user_id},${yr},${mo})">
+      </div>
+    </td>`;
+
+    return `<tr>
+      <td class="fw-semibold">${s.full_name} <span class="badge bg-secondary" style="font-size:0.65rem;">${roleMap[s.role]||s.role}</span></td>
+      <td>${isDaily ? '<span class="badge bg-info text-dark">รายวัน</span>' : '<span class="badge bg-primary">รายเดือน</span>'}</td>
+      <td class="text-end">${rateCell}</td>
+      ${abCell}
+      ${wdCell}
+      ${noAbCell}
+      ${specialCell}
+      <td class="text-end fw-bold">฿${Number(s.total_earned).toLocaleString()}</td>
+      <td class="text-end text-danger">฿${Number(s.total_withdrawals).toLocaleString()}</td>
+      <td class="text-end fw-bold ${s.net_payable>=0?'text-primary':'text-danger'}">฿${Number(s.net_payable).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-xs btn-outline-info" onclick="loadWithdrawals(${s.user_id})" title="ดูรายการเบิก"><i class="bi bi-list-ul"></i></button>
+        ${IS_OWNER ? `<button class="btn btn-xs btn-outline-warning ms-1" onclick="loadAbsences(${s.user_id})" title="ดูวันหยุด"><i class="bi bi-calendar-x"></i></button>` : ''}
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="13" class="text-center text-muted py-4">ไม่มีข้อมูลพนักงาน</td></tr>';
+
+  if (data.length) {
+    document.getElementById('tot_base').textContent    = '฿' + totBase.toLocaleString();
+    document.getElementById('tot_noab').textContent    = totNoAb > 0 ? '+฿' + totNoAb.toLocaleString() : '—';
+    document.getElementById('tot_special').textContent = totSpecial > 0 ? '฿' + totSpecial.toLocaleString() : '—';
+    document.getElementById('tot_earned').textContent  = '฿' + totEarned.toLocaleString();
+    document.getElementById('tot_withdraw').textContent = '฿' + totW.toLocaleString();
+    document.getElementById('tot_net').textContent      = '฿' + totNet.toLocaleString();
+  }
+  document.getElementById('payrollTotals').style.display = data.length ? '' : 'none';
+}
+
+async function saveSpecialBonus(userId, year, month) {
+  const amt = parseFloat(document.getElementById(`sp_${userId}`).value) || 0;
+  const res = await fetch('/api/payroll/special-bonus', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: userId, year, month, special_bonus: amt })
+  });
+  const data = await res.json();
+  res.ok ? showToast(data.message) : showToast(data.detail||'บันทึกไม่สำเร็จ','danger');
+  if (res.ok) loadPayroll();
+}
+
+function renderWithdrawals(data) {
+  const tbody = document.getElementById('withdrawalsList');
+  if (!tbody) return;
+  const deleteBtn = id => IS_OWNER
+    ? `<button class="btn btn-xs btn-outline-danger" onclick="deleteWithdrawal(${id})"><i class="bi bi-trash"></i></button>`
+    : `<span class="text-muted"><i class="bi bi-lock" title="เจ้าของเท่านั้น"></i></span>`;
+
+  if (CAN_MANAGE) {
+    tbody.innerHTML = data.length ? data.map(w => `
+      <tr>
+        <td>${w.date}</td>
+        <td>${w.user_name}</td>
+        <td class="text-end text-danger fw-semibold">฿${Number(w.amount).toLocaleString()}</td>
+        <td class="text-muted">${w.reason||'-'}</td>
+        <td class="small text-primary">${w.recorded_by||'-'}</td>
+        <td>${deleteBtn(w.id)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="text-center text-muted py-3">ไม่มีรายการเบิก</td></tr>';
+  } else {
+    // Staff view — no delete, show recorded_by + recorded_at
+    tbody.innerHTML = data.length ? data.map(w => `
+      <tr>
+        <td>${w.date}</td>
+        <td class="fw-semibold">${w.user_name}</td>
+        <td class="text-end text-danger fw-semibold">฿${Number(w.amount).toLocaleString()}</td>
+        <td class="text-muted">${w.reason||'-'}</td>
+        <td class="small text-primary">${w.recorded_by||'-'}</td>
+        <td class="small text-muted" style="white-space:nowrap">${w.recorded_at||'-'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="text-center text-muted py-3">ไม่มีรายการเบิก</td></tr>';
+  }
+}
+
+function renderAbsences(data) {
+  const tbody = document.getElementById('absencesList');
+  if (!tbody) return;
+
+  if (CAN_MANAGE) {
+    tbody.innerHTML = data.length ? data.map(a => `
+      <tr>
+        <td>${a.absence_date}</td>
+        <td class="fw-semibold">${a.user_name}</td>
+        <td class="text-muted">${a.reason||'-'}</td>
+        <td>
+          <button class="btn btn-xs btn-outline-danger" onclick="deleteAbsence(${a.id})"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="text-center text-muted py-3">ไม่มีรายการวันหยุด</td></tr>';
+  } else {
+    // Staff view — no delete, show recorded_by + recorded_at + summary badge
+    const badge = document.getElementById('absenceSummaryBadge');
+    if (badge) {
+      badge.innerHTML = data.length
+        ? `<span class="badge bg-warning text-dark fs-6">${data.length} วัน</span>`
+        : `<span class="badge bg-success">ไม่มีวันหยุด</span>`;
+    }
+    // Group by user for summary line
+    const byUser = {};
+    data.forEach(a => {
+      byUser[a.user_name] = (byUser[a.user_name] || 0) + 1;
+    });
+    const summaryHtml = Object.entries(byUser).map(([name, cnt]) =>
+      `<span class="badge bg-secondary me-1">${name}: ${cnt} วัน</span>`
+    ).join('');
+
+    tbody.innerHTML = data.length ? `
+      <tr><td colspan="5" class="py-2 px-3" style="background:#fffbeb;">${summaryHtml}</td></tr>
+      ${data.map(a => `
+      <tr>
+        <td>${a.absence_date}</td>
+        <td class="fw-semibold">${a.user_name}</td>
+        <td class="text-muted">${a.reason||'-'}</td>
+        <td class="small text-primary">${a.recorded_by||'-'}</td>
+        <td class="small text-muted" style="white-space:nowrap">${a.recorded_at||'-'}</td>
+      </tr>`).join('')}`
+    : '<tr><td colspan="5" class="text-center text-muted py-3">ไม่มีรายการวันหยุด</td></tr>';
+  }
+}
+
+async function loadWithdrawals(userId) {
+  const month = document.getElementById('pay_month').value;
+  const year  = parseInt(document.getElementById('pay_year').value) - 543;
+  let url = `/api/payroll/withdrawals?year=${year}&month=${month}`;
+  if (userId) url += `&user_id=${userId}`;
+  const res = await fetch(url);
+  renderWithdrawals(await res.json());
+}
+
+async function loadAbsences(userId) {
+  const month = document.getElementById('pay_month').value;
+  const year  = parseInt(document.getElementById('pay_year').value) - 543;
+  let url = `/api/payroll/absences?year=${year}&month=${month}`;
+  if (userId) url += `&user_id=${userId}`;
+  const res = await fetch(url);
+  renderAbsences(await res.json());
+}
+
+// ── Withdrawal ────────────────────────────────
+function openWithdrawForm() {
+  const sel = document.getElementById('wd_user_id');
+  if (sel && sel.tagName === 'SELECT') sel.value = '';
+  document.getElementById('wd_amount').value = '';
+  document.getElementById('wd_reason').value = '';
+  new bootstrap.Modal(document.getElementById('withdrawModal')).show();
+}
+
+async function saveWithdrawal() {
+  const body = {
+    user_id: document.getElementById('wd_user_id').value,
+    amount: document.getElementById('wd_amount').value,
+    date: isoDate(document.getElementById('wd_date').value),
+    reason: document.getElementById('wd_reason').value,
+  };
+  if (!body.user_id || !body.amount) { showToast('กรุณากรอกข้อมูลให้ครบ', 'danger'); return; }
+  const res = await fetch('/api/payroll/withdrawals', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (res.ok) {
+    showToast(data.message);
+    bootstrap.Modal.getInstance(document.getElementById('withdrawModal')).hide();
+    CAN_MANAGE ? loadPayroll() : loadWithdrawals(null);
+  } else {
+    showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger');
+  }
+}
+
+async function deleteWithdrawal(id) {
+  if (!confirm('ลบรายการเบิกเงินนี้?')) return;
+  const res = await fetch(`/api/payroll/withdrawals/${id}`, {method:'DELETE'});
+  const data = await res.json();
+  res.ok ? (showToast(data.message), loadPayroll()) : showToast(data.detail||'ลบไม่สำเร็จ','danger');
+}
+
+// ── Absence ───────────────────────────────────
+let _abPicker = null;
+let _abSelectedDates = [];  // array of ISO strings
+
+function openAbsenceForm() {
+  document.getElementById('ab_user_id').value = '';
+  document.getElementById('ab_reason').value  = '';
+  document.getElementById('ab_date').value    = '';
+  document.getElementById('ab_date_preview').innerHTML = '';
+  document.getElementById('ab_range_info').style.display = 'none';
+  document.getElementById('ab_save_count').style.display = 'none';
+  document.getElementById('abModeSingle').checked = true;
+  _abSelectedDates = [];
+  initAbPicker('multiple');
+
+  // Mode toggle listener
+  document.querySelectorAll('input[name="abMode"]').forEach(r => {
+    r.onchange = () => { _abSelectedDates = []; initAbPicker(r.value); };
+  });
+
+  new bootstrap.Modal(document.getElementById('absenceModal')).show();
+}
+
+function initAbPicker(mode) {
+  if (_abPicker) { _abPicker.destroy(); _abPicker = null; }
+  document.getElementById('ab_date').value = '';
+  document.getElementById('ab_date_preview').innerHTML = '';
+  document.getElementById('ab_range_info').style.display = 'none';
+
+  _abPicker = flatpickr('#ab_date', {
+    mode,
+    dateFormat: 'd/m/Y',
+    locale: 'th',
+    allowInput: false,
+    onChange(selectedDates) {
+      if (mode === 'range' && selectedDates.length === 2) {
+        // expand range → all dates between start and end inclusive
+        _abSelectedDates = [];
+        const cur = new Date(selectedDates[0]);
+        const end = new Date(selectedDates[1]);
+        while (cur <= end) {
+          _abSelectedDates.push(cur.toISOString().slice(0, 10));
+          cur.setDate(cur.getDate() + 1);
+        }
+        document.getElementById('ab_date_preview').innerHTML = '';
+        const info = document.getElementById('ab_range_info');
+        info.style.display = '';
+        info.innerHTML = `<i class="bi bi-calendar-range me-1"></i>รวม <strong class="text-warning">${_abSelectedDates.length} วัน</strong>`;
+      } else if (mode === 'multiple') {
+        _abSelectedDates = selectedDates.map(d => d.toISOString().slice(0, 10));
+        renderAbsenceDatePreview(_abSelectedDates);
+      } else {
+        // range but only 1 date picked so far
+        _abSelectedDates = [];
+        document.getElementById('ab_range_info').style.display = 'none';
+      }
+      updateAbSaveCount();
+    },
+  });
+}
+
+function renderAbsenceDatePreview(dates) {
+  document.getElementById('ab_date_preview').innerHTML = dates.map(d => {
+    const [y, m, day] = d.split('-');
+    return `<span class="badge bg-warning text-dark">${day}/${m}/${parseInt(y)+543}</span>`;
+  }).join('');
+}
+
+function updateAbSaveCount() {
+  const cnt = document.getElementById('ab_save_count');
+  if (_abSelectedDates.length > 1) {
+    cnt.textContent = _abSelectedDates.length + ' วัน';
+    cnt.style.display = '';
+  } else {
+    cnt.style.display = 'none';
+  }
+}
+
+async function saveAbsence() {
+  const userId = document.getElementById('ab_user_id').value;
+  const reason = document.getElementById('ab_reason').value;
+  if (!userId)                  { showToast('กรุณาเลือกพนักงาน', 'danger'); return; }
+  if (!_abSelectedDates.length) { showToast('กรุณาเลือกวันที่หยุดอย่างน้อย 1 วัน', 'danger'); return; }
+
+  let saved = 0, failed = 0;
+  for (const d of _abSelectedDates) {
+    const res = await fetch('/api/payroll/absences', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: userId, absence_date: d, reason }),
+    });
+    res.ok ? saved++ : failed++;
+  }
+
+  if (saved) showToast(`บันทึกวันหยุด ${saved} วันเรียบร้อย${failed ? ` (ซ้ำ/ผิดพลาด ${failed} วัน)` : ''}`);
+  else       showToast('บันทึกไม่สำเร็จ', 'danger');
+
+  bootstrap.Modal.getInstance(document.getElementById('absenceModal')).hide();
+  CAN_MANAGE ? loadPayroll() : staffLoadAll();
+}
+
+async function deleteAbsence(id) {
+  if (!confirm('ลบบันทึกวันหยุดนี้?')) return;
+  const res = await fetch(`/api/payroll/absences/${id}`, {method:'DELETE'});
+  const data = await res.json();
+  res.ok ? (showToast(data.message), loadPayroll()) : showToast(data.detail||'ลบไม่สำเร็จ','danger');
+}
+
+// ── Bonus Settings ────────────────────────────
+async function openBonusSettingModal() {
+  const res = await fetch('/api/payroll/settings');
+  if (res.ok) {
+    const cfg = await res.json();
+    document.getElementById('cfg_no_ab_bonus').value = cfg.no_absence_bonus;
+    document.getElementById('cfg_free_days').value   = cfg.free_absence_days;
+    updateCutDayPreview();
+  }
+  document.getElementById('cfg_free_days').oninput = updateCutDayPreview;
+  new bootstrap.Modal(document.getElementById('bonusSettingModal')).show();
+}
+
+function updateCutDayPreview() {
+  const free = parseInt(document.getElementById('cfg_free_days').value) || 0;
+  document.getElementById('cfg_cut_day_preview').textContent = free + 1;
+}
+
+async function saveBonusSettings() {
+  const body = {
+    no_absence_bonus:  parseFloat(document.getElementById('cfg_no_ab_bonus').value) || 0,
+    free_absence_days: parseInt(document.getElementById('cfg_free_days').value)      || 0,
+  };
+  const res = await fetch('/api/payroll/settings', {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (res.ok) {
+    showToast(data.message);
+    bootstrap.Modal.getInstance(document.getElementById('bonusSettingModal')).hide();
+    loadPayroll();
+  } else {
+    showToast(data.detail || 'บันทึกไม่สำเร็จ', 'danger');
+  }
+}
+
+// ── Wage Setting ──────────────────────────────
+function openWageSettingModal() {
+  new bootstrap.Modal(document.getElementById('wageModal')).show();
+}
+
+function toggleWageFields(uid) {
+  const type = document.getElementById(`wt_${uid}`).value;
+  document.getElementById(`ws_${uid}`).style.display = type === 'monthly' ? '' : 'none';
+  document.getElementById(`wd_${uid}`).style.display = type === 'daily'   ? '' : 'none';
+}
+
+async function saveWage(uid) {
+  const wageType  = document.getElementById(`wt_${uid}`).value;
+  const salary    = parseFloat(document.getElementById(`ws_${uid}`).value) || 0;
+  const dailyRate = parseFloat(document.getElementById(`wd_${uid}`).value) || 0;
+  const res = await fetch(`/api/users/${uid}/wage`, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ wage_type: wageType, salary, daily_rate: dailyRate })
+  });
+  const data = await res.json();
+  res.ok ? showToast(data.message) : showToast(data.detail||'บันทึกไม่สำเร็จ','danger');
+}
+</script>
+{% endblock %}

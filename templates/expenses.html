@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}บันทึกค่าใช้จ่าย — Hotel Manager{% endblock %}
+{% block breadcrumb %}บันทึกค่าใช้จ่าย{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h5 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-warning"></i>บันทึกค่าใช้จ่ายวันนี้</h5>
+  <span class="text-muted" style="font-size:0.9rem;">
+    <i class="bi bi-calendar3 me-1"></i>{{ today.strftime('%d/%m/%Y') }}
+  </span>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── ฟอร์มบันทึก ── -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm" style="border-radius:18px;">
+      <div class="card-header border-0" style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:18px 18px 0 0;padding:1rem 1.25rem;">
+        <h6 class="fw-bold text-white mb-0"><i class="bi bi-plus-circle me-2"></i>เพิ่มรายการใหม่</h6>
+      </div>
+      <div class="card-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">หมวดหมู่ <span class="text-danger">*</span></label>
+          <select class="form-select" id="exp_category">
+            <option value="">-- เลือกหมวดหมู่ --</option>
+            <option>ค่าน้ำ</option>
+            <option>ค่าไฟ</option>
+            <option>ค่าอินเทอร์เน็ต</option>
+            <option>ค่าซ่อมบำรุง</option>
+            <option>ค่าทำความสะอาด</option>
+            <option>ค่าวัสดุสิ้นเปลือง</option>
+            <option>ค่าอาหาร/เครื่องดื่ม</option>
+            <option>ค่าแรงงาน</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">จำนวนเงิน (บาท) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="exp_amount" min="1" step="1" placeholder="0">
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-semibold">รายละเอียด</label>
+          <textarea class="form-control" id="exp_desc" rows="3" placeholder="อธิบายเพิ่มเติม (ถ้ามี)"></textarea>
+        </div>
+        <button class="btn w-100 fw-semibold text-white" style="background:#f59e0b;border-radius:12px;padding:0.6rem;"
+                onclick="saveExpense()">
+          <i class="bi bi-save me-2"></i>บันทึกค่าใช้จ่าย
+        </button>
+        <div class="alert alert-warning py-2 mt-3 mb-0" style="font-size:0.8rem;border-radius:10px;">
+          <i class="bi bi-info-circle me-1"></i>บันทึกเป็นวันที่ปัจจุบันอัตโนมัติ
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── รายการวันนี้ ── -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm" style="border-radius:18px;overflow:hidden;">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center p-4 pb-2">
+        <h6 class="fw-bold mb-0">รายการค่าใช้จ่ายวันนี้</h6>
+        <span id="totalBadge"
+              class="fw-bold px-3 py-1"
+              style="background:#fef3c7;color:#92400e;border-radius:99px;font-size:0.88rem;">
+          {% if today_expenses %}
+            รวม ฿{{ "{:,.0f}".format(today_expenses | sum(attribute='amount')) }}
+          {% else %}
+            ฿0
+          {% endif %}
+        </span>
+      </div>
+      <div class="card-body p-0">
+        {% if today_expenses %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" style="font-size:0.88rem;">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-4">หมวดหมู่</th>
+                <th>รายละเอียด</th>
+                <th class="text-end pe-4">จำนวนเงิน</th>
+                {% if can_manage %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody id="expenseBody">
+              {% for e in today_expenses %}
+              <tr id="exp-row-{{ e.id }}">
+                <td class="ps-4">
+                  <span class="badge" style="background:#fef3c7;color:#92400e;font-weight:600;font-size:0.78rem;">
+                    <i class="bi bi-tag me-1"></i>{{ e.category }}
+                  </span>
+                </td>
+                <td class="text-muted">{{ e.description or '—' }}</td>
+                <td class="text-end pe-4 fw-bold" style="color:#d97706;">
+                  ฿{{ "{:,.0f}".format(e.amount) }}
+                </td>
+                {% if can_manage %}
+                <td class="pe-3">
+                  <button class="btn btn-xs btn-outline-danger" style="border-radius:8px;"
+                          onclick="deleteExpense({{ e.id }}, {{ e.amount }})">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5" id="emptyState">
+          <i class="bi bi-receipt" style="font-size:3rem;color:#d1d5db;display:block;margin-bottom:12px;"></i>
+          <div style="color:#94a3b8;font-size:0.9rem;">ยังไม่มีรายการค่าใช้จ่ายวันนี้</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _totalAmount = {{ today_expenses | sum(attribute='amount') if today_expenses else 0 }};
+
+async function saveExpense() {
+  const category = document.getElementById('exp_category').value;
+  const amount   = parseFloat(document.getElementById('exp_amount').value) || 0;
+  const desc     = document.getElementById('exp_desc').value.trim();
+
+  if (!category)    { showToast('กรุณาเลือกหมวดหมู่', 'danger'); return; }
+  if (amount <= 0)  { showToast('กรุณาระบุจำนวนเงิน', 'danger'); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const res = await fetch('/api/expenses', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ category, amount, description: desc, expense_date: today })
+  });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'บันทึกไม่สำเร็จ', 'danger'); return; }
+
+  showToast('บันทึกเรียบร้อย');
+
+  // Add row to table without reload
+  _totalAmount += amount;
+  updateTotal();
+  addExpenseRow(data.id, category, desc, amount);
+
+  // Clear form
+  document.getElementById('exp_category').value = '';
+  document.getElementById('exp_amount').value   = '';
+  document.getElementById('exp_desc').value     = '';
+}
+
+function addExpenseRow(id, category, desc, amount) {
+  // Remove empty state if present
+  document.getElementById('emptyState')?.remove();
+
+  let tbody = document.getElementById('expenseBody');
+  if (!tbody) {
+    // Table didn't exist yet — reload is simplest
+    location.reload(); return;
+  }
+  const canManage = {{ 'true' if can_manage else 'false' }};
+  const deleteCol = canManage
+    ? `<td class="pe-3"><button class="btn btn-xs btn-outline-danger" style="border-radius:8px;" onclick="deleteExpense(${id}, ${amount})"><i class="bi bi-trash"></i></button></td>`
+    : '';
+  const row = document.createElement('tr');
+  row.id = `exp-row-${id}`;
+  row.innerHTML = `
+    <td class="ps-4"><span class="badge" style="background:#fef3c7;color:#92400e;font-weight:600;font-size:0.78rem;"><i class="bi bi-tag me-1"></i>${category}</span></td>
+    <td class="text-muted">${desc || '—'}</td>
+    <td class="text-end pe-4 fw-bold" style="color:#d97706;">฿${amount.toLocaleString()}</td>
+    ${deleteCol}
+  `;
+  tbody.prepend(row);
+}
+
+async function deleteExpense(id, amount) {
+  if (!confirm('ลบรายการนี้?')) return;
+  const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById(`exp-row-${id}`)?.remove();
+    _totalAmount -= amount;
+    updateTotal();
+    showToast(data.message);
+  } else {
+    showToast(data.detail || 'ลบไม่สำเร็จ', 'danger');
+  }
+}
+
+function updateTotal() {
+  document.getElementById('totalBadge').textContent =
+    'รวม ฿' + _totalAmount.toLocaleString('th-TH', {minimumFractionDigits:0});
+}
+</script>
+{% endblock %}

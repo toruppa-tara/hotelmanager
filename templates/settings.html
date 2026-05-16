@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}ตั้งค่าระบบ — Hotel Manager{% endblock %}
+{% block breadcrumb %}ตั้งค่าระบบ{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold mb-4"><i class="bi bi-gear-fill me-2 text-primary"></i>ตั้งค่าระบบ / ใบเสร็จ</h5>
+
+<div class="row g-4">
+  <!-- Invoice Settings -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-primary"></i>ข้อมูลใบเสร็จ / บิล</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">ชื่อกิจการ / โรงแรม</label>
+          <input type="text" class="form-control" id="inv_company" value="{{ inv_setting.company_name if inv_setting else '' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">ที่อยู่</label>
+          <textarea class="form-control" id="inv_address" rows="3">{{ inv_setting.address if inv_setting else '' }}</textarea>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">เบอร์โทรศัพท์</label>
+            <input type="text" class="form-control" id="inv_phone" value="{{ inv_setting.phone if inv_setting else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">เลขประจำตัวผู้เสียภาษี</label>
+            <input type="text" class="form-control" id="inv_tax_id" value="{{ inv_setting.tax_id if inv_setting else '' }}">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">ข้อมูลธนาคาร / บัญชีรับโอน</label>
+          <textarea class="form-control" id="inv_bank" rows="3">{{ inv_setting.bank_info if inv_setting else '' }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">หมายเหตุท้ายบิล</label>
+          <textarea class="form-control" id="inv_footer" rows="2">{{ inv_setting.footer_notes if inv_setting else '' }}</textarea>
+        </div>
+        <button class="btn btn-primary fw-semibold" onclick="saveInvoiceSettings()">
+          <i class="bi bi-save me-1"></i>บันทึกการตั้งค่า
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logo Upload + Preview -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-image me-2 text-success"></i>โลโก้โรงแรม</h6>
+      </div>
+      <div class="card-body text-center">
+        {% if inv_setting and inv_setting.logo_filename %}
+        <img src="/uploads/logos/{{ inv_setting.logo_filename }}" alt="Logo" class="img-fluid mb-3 rounded shadow-sm" style="max-height:120px">
+        {% else %}
+        <div class="text-muted py-4 border rounded mb-3">
+          <i class="bi bi-image fs-2 d-block mb-1"></i>ยังไม่มีโลโก้
+        </div>
+        {% endif %}
+        <input type="file" class="form-control mb-2" id="logoFile" accept="image/*">
+        <button class="btn btn-success w-100" onclick="uploadLogo()">
+          <i class="bi bi-upload me-1"></i>อัปโหลดโลโก้
+        </button>
+        <div class="text-muted small mt-2">รองรับ JPG, PNG, GIF (แนะนำ 300×300px)</div>
+      </div>
+    </div>
+
+    <!-- Preview Bill -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-eye me-2 text-info"></i>ตัวอย่างบิล</h6>
+      </div>
+      <div class="card-body text-center">
+        <p class="text-muted small mb-3">คลิกดูตัวอย่างบิลจากการจองจริง</p>
+        <div class="input-group mb-2">
+          <input type="number" class="form-control" id="previewBookingId" placeholder="เลขที่การจอง (Booking ID)">
+          <button class="btn btn-info text-white" onclick="previewBill()">
+            <i class="bi bi-receipt me-1"></i>ดูบิล
+          </button>
+        </div>
+        <p class="text-muted small">บิลจะเปิดในแท็บใหม่ สามารถพิมพ์ได้ทันที</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveInvoiceSettings() {
+  const body = {
+    company_name: document.getElementById('inv_company').value,
+    address: document.getElementById('inv_address').value,
+    phone: document.getElementById('inv_phone').value,
+    tax_id: document.getElementById('inv_tax_id').value,
+    bank_info: document.getElementById('inv_bank').value,
+    footer_notes: document.getElementById('inv_footer').value,
+  };
+  const res = await fetch('/api/settings/invoice', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  showToast(data.message || 'บันทึกเรียบร้อย');
+}
+
+async function uploadLogo() {
+  const file = document.getElementById('logoFile').files[0];
+  if (!file) { showToast('กรุณาเลือกไฟล์รูปภาพ', 'danger'); return; }
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/settings/logo', {method: 'POST', body: formData});
+  const data = await res.json();
+  showToast(data.message);
+  setTimeout(() => location.reload(), 1000);
+}
+
+function previewBill() {
+  const id = document.getElementById('previewBookingId').value;
+  if (!id) { showToast('กรุณาระบุเลขที่การจอง', 'danger'); return; }
+  window.open(`/invoice/${id}`, '_blank');
+}
+</script>
+{% endblock %}

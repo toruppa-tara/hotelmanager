@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Booking Confirmation #{{ booking.id }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 13px; color: #222; background: #f5f5f5; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 20mm 18mm; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #0d9488; padding-bottom: 15px; }
+    .logo-area img { max-height: 80px; max-width: 150px; }
+    .logo-area .no-logo { font-size: 28px; font-weight: bold; color: #0d9488; }
+    .company-info { text-align: right; }
+    .company-info h2 { font-size: 18px; color: #0d9488; font-weight: bold; }
+    .company-info p { font-size: 12px; color: #555; margin-top: 2px; }
+    .doc-title { text-align: center; margin: 18px 0 15px; }
+    .doc-title h1 { font-size: 22px; font-weight: bold; color: #0d9488; letter-spacing: 2px; }
+    .doc-title .ref { font-size: 14px; color: #666; margin-top: 4px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .info-box { background: #f8f9fa; border-radius: 6px; padding: 10px 14px; }
+    .info-box h6 { font-size: 10px; text-transform: uppercase; color: #888; margin-bottom: 6px; letter-spacing: 1px; }
+    .info-box p { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .info-box .sub { font-weight: 400; font-size: 12px; color: #555; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table.items thead tr { background: #0d9488; color: #fff; }
+    table.items thead th { padding: 8px 10px; font-size: 12px; text-align: left; }
+    table.items tbody tr:nth-child(even) { background: #f0fdfa; }
+    table.items tbody td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #e9ecef; }
+    table.items .text-right { text-align: right; }
+    .totals { margin-left: auto; width: 300px; margin-bottom: 16px; }
+    .totals table { width: 100%; }
+    .totals td { padding: 4px 8px; font-size: 13px; }
+    .totals .total-row td { font-weight: bold; font-size: 15px; color: #0d9488; border-top: 2px solid #0d9488; padding-top: 6px; white-space: nowrap; }
+    .sec-deposit-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; }
+    .sec-deposit-box h6 { font-size: 11px; text-transform: uppercase; color: #92400e; margin-bottom: 5px; }
+    .notes-box { background: #f8faff; border: 1px solid #dbeafe; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; }
+    .terms { font-size: 11px; color: #666; margin-bottom: 16px; line-height: 1.8; }
+    .terms h6 { font-size: 11px; color: #444; font-weight: bold; margin-bottom: 4px; }
+    .sig-box { text-align: center; display: inline-block; }
+    .sig-line { border-top: 1px solid #333; width: 180px; margin: 40px auto 4px; }
+    .sig-label { font-size: 11px; color: #666; }
+    .sig-date { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+    /* Language toggle — hide inactive language */
+    .lang-en, .lang-th { display: none; }
+    body.show-en .lang-en { display: revert; }
+    body.show-th .lang-th { display: revert; }
+    /* inline spans */
+    span.lang-en, span.lang-th { display: none; }
+    body.show-en span.lang-en { display: inline; }
+    body.show-th span.lang-th { display: inline; }
+
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; padding: 15mm 15mm; box-shadow: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="show-en">
+
+<!-- Print / Language Controls -->
+<div class="no-print" style="background:#0d9488;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="font-weight:bold;font-size:15px">
+    <span class="lang-en">Booking Confirmation</span>
+    <span class="lang-th">ใบยืนยันการจอง</span>
+  </span>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+    <!-- Language Toggle -->
+    <div style="display:flex;border:1px solid rgba(255,255,255,0.5);border-radius:6px;overflow:hidden;">
+      <button id="btnEn" onclick="setLang('en')"
+        style="padding:5px 14px;border:none;background:rgba(255,255,255,0.25);color:#fff;font-weight:bold;cursor:pointer;font-size:13px;">
+        EN
+      </button>
+      <button id="btnTh" onclick="setLang('th')"
+        style="padding:5px 14px;border:none;background:transparent;color:rgba(255,255,255,0.7);cursor:pointer;font-size:13px;">
+        TH
+      </button>
+    </div>
+    <button onclick="downloadPdf()"
+      style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);padding:6px 16px;border-radius:5px;font-weight:bold;cursor:pointer;" id="btnPdf">
+      <span class="lang-en">⬇ PDF</span><span class="lang-th">⬇ PDF</span>
+    </button>
+    <button onclick="window.print()"
+      style="background:#fff;color:#0d9488;border:none;padding:6px 18px;border-radius:5px;font-weight:bold;cursor:pointer;">
+      <span class="lang-en">Print</span><span class="lang-th">พิมพ์</span>
+    </button>
+    <button onclick="window.close()"
+      style="background:transparent;color:#fff;border:1px solid #fff;padding:6px 14px;border-radius:5px;cursor:pointer;">
+      ✕
+    </button>
+  </div>
+</div>
+
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      {% if inv_setting and inv_setting.logo_filename %}
+        <img src="/uploads/logos/{{ inv_setting.logo_filename }}" alt="Logo">
+      {% else %}
+        <div class="no-logo" style="font-size:20px;font-weight:bold;color:#0d9488;line-height:1.2;">
+          {{ inv_setting.company_name if inv_setting and inv_setting.company_name else 'Hotel' }}
+        </div>
+      {% endif %}
+    </div>
+    <div class="company-info">
+      <h2>{{ inv_setting.company_name if inv_setting and inv_setting.company_name else 'Hotel' }}</h2>
+      {% if inv_setting %}
+        {% if inv_setting.address %}<p>{{ inv_setting.address|replace('\n','<br>')|safe }}</p>{% endif %}
+        {% if inv_setting.phone %}
+          <p><span class="lang-en">Tel:</span><span class="lang-th">โทร:</span> {{ inv_setting.phone }}</p>
+        {% endif %}
+        {% if inv_setting.tax_id %}
+          <p><span class="lang-en">Tax ID:</span><span class="lang-th">เลขผู้เสียภาษี:</span> {{ inv_setting.tax_id }}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div class="doc-title">
+    <h1 class="lang-en">BOOKING CONFIRMATION</h1>
+    <h1 class="lang-th">ใบยืนยันการจอง</h1>
+    <div class="ref">
+      <span class="lang-en">Ref No:</span><span class="lang-th">เลขที่:</span>
+      CONF-{{ "%05d"|format(booking.id) }}
+      &nbsp;|&nbsp;
+      <span class="lang-en">Issue Date:</span><span class="lang-th">วันที่ออก:</span>
+      {{ today.strftime('%d/%m/%Y') }}
+    </div>
+  </div>
+
+  <!-- Info Grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <h6 class="lang-en">Guest Information</h6>
+      <h6 class="lang-th">ข้อมูลผู้เข้าพัก</h6>
+      <p>{{ booking.member.name if booking.member else booking.guest_name or 'Guest' }}</p>
+      {% if booking.member %}
+        {% if booking.member.phone %}
+          <p class="sub"><span class="lang-en">Tel:</span><span class="lang-th">โทร:</span> {{ booking.member.phone }}</p>
+        {% endif %}
+        {% if booking.member.email %}<p class="sub">Email: {{ booking.member.email }}</p>{% endif %}
+        {% if booking.member.id_card %}
+          <p class="sub"><span class="lang-en">ID:</span><span class="lang-th">บัตร ปชช:</span> {{ booking.member.id_card }}</p>
+        {% endif %}
+        {% if booking.member.is_corporate and booking.member.company_name %}
+          <p class="sub"><span class="lang-en">Company:</span><span class="lang-th">บริษัท:</span> {{ booking.member.company_name }}</p>
+        {% endif %}
+        {% if booking.member.address %}<p class="sub">{{ booking.member.address }}</p>{% endif %}
+      {% endif %}
+    </div>
+    <div class="info-box">
+      <h6 class="lang-en">Booking Details</h6>
+      <h6 class="lang-th">รายละเอียดการจอง</h6>
+      <p><span class="lang-en">Room</span><span class="lang-th">ห้อง</span> {{ booking.room.room_number }} — {{ booking.room.name }}</p>
+      <p class="sub" style="margin-top:6px">
+        <span class="lang-en">Check-in:</span><span class="lang-th">เช็คอิน:</span>
+        <strong>{{ booking.check_in_date.strftime('%d/%m/%Y') }}</strong>
+      </p>
+      <p class="sub">
+        <span class="lang-en">Check-out:</span><span class="lang-th">เช็คเอาต์:</span>
+        <strong>{{ booking.check_out_date.strftime('%d/%m/%Y') }}</strong>
+      </p>
+      <p class="sub">
+        <span class="lang-en">Duration: {{ booking.num_nights }} night{% if booking.num_nights != 1 %}s{% endif %}</span>
+        <span class="lang-th">จำนวน {{ booking.num_nights }} คืน</span>
+      </p>
+      {% if booking.staff %}
+      <p class="sub" style="margin-top:4px">
+        <span class="lang-en">Staff:</span><span class="lang-th">พนักงาน:</span> {{ booking.staff.full_name }}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th><span class="lang-en">Description</span><span class="lang-th">รายการ</span></th>
+        <th class="text-right" style="width:110px"><span class="lang-en">Rate/Night</span><span class="lang-th">ราคา/คืน</span></th>
+        <th class="text-right" style="width:80px"><span class="lang-en">Nights</span><span class="lang-th">จำนวนคืน</span></th>
+        <th class="text-right" style="width:110px"><span class="lang-en">Amount</span><span class="lang-th">รวม</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>
+          <span class="lang-en">Room</span><span class="lang-th">ค่าห้องพัก</span>
+          {{ booking.room.room_number }} ({{ booking.room.name }})<br>
+          <small style="color:#666">{{ booking.check_in_date.strftime('%d/%m/%Y') }} — {{ booking.check_out_date.strftime('%d/%m/%Y') }}</small>
+        </td>
+        <td class="text-right">{{ "{:,.0f}".format(booking.room_price) }}</td>
+        <td class="text-right">{{ booking.num_nights }}</td>
+        <td class="text-right"><strong>{{ "{:,.0f}".format(booking.total_price) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <table>
+      <tr>
+        <td><span class="lang-en">Room Total</span><span class="lang-th">ยอดรวมค่าห้อง</span></td>
+        <td class="text-right">฿{{ "{:,.0f}".format(booking.total_price) }}</td>
+      </tr>
+      {% if booking.deposit_amount > 0 %}
+      <tr>
+        <td>
+          <span class="lang-en">Deposit Paid{% if booking.deposit_type %} ({{ 'Transfer' if booking.deposit_type == 'transfer' else 'Cash' }}){% endif %}</span>
+          <span class="lang-th">มัดจำแล้ว{% if booking.deposit_type %} ({{ 'โอน' if booking.deposit_type == 'transfer' else 'สด' }}){% endif %}</span>
+        </td>
+        <td class="text-right" style="color:#16a34a">- ฿{{ "{:,.0f}".format(booking.deposit_amount) }}</td>
+      </tr>
+      {% endif %}
+      <tr class="total-row">
+        <td>
+          <span class="lang-en">Balance Due (Pay at Check-in)</span>
+          <span class="lang-th">ยอดคงเหลือ (ชำระ ณ วันเช็คอิน)</span>
+        </td>
+        <td class="text-right">฿{{ "{:,.0f}".format(booking.outstanding_balance) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Security Deposit -->
+  {% if booking.security_deposit_type != 'none' %}
+  <div class="sec-deposit-box">
+    <h6 class="lang-en">Security Deposit</h6>
+    <h6 class="lang-th">หลักทรัพย์ค้ำประกัน / เงินประกัน</h6>
+    {% if booking.security_deposit_type == 'cash' %}
+      <p style="font-size:12px" class="lang-en">Cash deposit: <strong>฿{{ "{:,.0f}".format(booking.security_deposit) }}</strong> — will be refunded upon check-out after room inspection.</p>
+      <p style="font-size:12px" class="lang-th">เงินสด จำนวน <strong>฿{{ "{:,.0f}".format(booking.security_deposit) }}</strong> — จะคืนให้เมื่อตรวจสอบห้องพักเรียบร้อยแล้ว</p>
+    {% elif booking.security_deposit_type == 'id_card' %}
+      <p style="font-size:12px" class="lang-en">ID Card held as security — will be returned upon check-out after room inspection.</p>
+      <p style="font-size:12px" class="lang-th">บัตรประชาชน — จะคืนให้เมื่อตรวจสอบห้องพักเรียบร้อยแล้ว</p>
+    {% else %}
+      <p style="font-size:12px" class="lang-en">{{ booking.security_deposit_note or 'Other' }} — will be returned upon check-out after room inspection.</p>
+      <p style="font-size:12px" class="lang-th">{{ booking.security_deposit_note or 'อื่นๆ' }} — จะคืนให้เมื่อตรวจสอบห้องพักเรียบร้อยแล้ว</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  {% if booking.notes %}
+  <div class="notes-box">
+    <strong style="font-size:11px;color:#3b82f6" class="lang-en">Remarks:</strong>
+    <strong style="font-size:11px;color:#3b82f6" class="lang-th">หมายเหตุ:</strong>
+    <p style="font-size:12px;margin-top:3px">{{ booking.notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Terms -->
+  <div class="terms">
+    <h6 class="lang-en">Terms &amp; Conditions</h6>
+    <h6 class="lang-th">เงื่อนไขการจอง</h6>
+    <p class="lang-en">• Please check in on the specified date from 14:00 onwards.</p>
+    <p class="lang-en">• The security deposit will be refunded after room inspection at check-out.</p>
+    <p class="lang-th">• กรุณาเช็คอินตามวันที่ระบุ เวลา 14.00 น. เป็นต้นไป</p>
+    <p class="lang-th">• หลักทรัพย์ค้ำประกัน จะได้คืนเมื่อตรวจสอบห้องพักเรียบร้อยแล้ว</p>
+  </div>
+
+  <!-- Signature -->
+  <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:30px;text-align:right;">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">
+        <span class="lang-en">Authorized Signature</span>
+        <span class="lang-th">ผู้รับเรื่อง / เจ้าหน้าที่</span>
+      </div>
+      <div class="sig-date">
+        <span class="lang-en">Date:</span><span class="lang-th">วันที่:</span>
+        {{ today.strftime('%d/%m/%Y') }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function setLang(lang) {
+    document.body.className = 'show-' + lang;
+    document.getElementById('btnEn').style.background = lang === 'en' ? 'rgba(255,255,255,0.25)' : 'transparent';
+    document.getElementById('btnEn').style.color      = lang === 'en' ? '#fff' : 'rgba(255,255,255,0.7)';
+    document.getElementById('btnTh').style.background = lang === 'th' ? 'rgba(255,255,255,0.25)' : 'transparent';
+    document.getElementById('btnTh').style.color      = lang === 'th' ? '#fff' : 'rgba(255,255,255,0.7)';
+  }
+  // default EN
+  setLang('en');
+
+  function downloadPdf() {
+    const btn = document.getElementById('btnPdf');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ ...';
+    const element = document.querySelector('.page');
+    html2pdf().set({
+      margin: 0,
+      filename: 'CONF-{{ "%05d"|format(booking.id) }}.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(element).save().then(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="lang-en">⬇ PDF</span><span class="lang-th">⬇ PDF</span>';
+    });
+  }
+</script>
+</body>
+</html>

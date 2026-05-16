@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}รายงานยอดขาย — Hotel Manager{% endblock %}
+{% block breadcrumb %}รายงานยอดขาย{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold mb-4"><i class="bi bi-bar-chart-fill me-2 text-primary"></i>รายงานยอดขาย / ค่าใช้จ่าย</h5>
+
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">ช่วงเวลา</label>
+        <select class="form-select" id="rpt_period" onchange="toggleDatePicker()">
+          <option value="day">รายวัน (วันนี้)</option>
+          <option value="month" selected>รายเดือน (เดือนนี้)</option>
+          <option value="custom">กำหนดเอง</option>
+        </select>
+      </div>
+      <div class="col-md-3" id="dateFromWrap">
+        <label class="form-label fw-semibold">ตั้งแต่วันที่</label>
+        <input type="text" class="form-control datepick" id="rpt_from" placeholder="เลือกวันที่">
+      </div>
+      <div class="col-md-3" id="dateToWrap">
+        <label class="form-label fw-semibold">ถึงวันที่</label>
+        <input type="text" class="form-control datepick" id="rpt_to" placeholder="เลือกวันที่">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-primary w-100" onclick="loadReport()">
+          <i class="bi bi-search me-1"></i>ดูรายงาน
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card card border-0 shadow-sm text-center py-3">
+      <div class="stat-icon bg-success-subtle text-success mx-auto mb-2">
+        <i class="bi bi-cash-stack"></i>
+      </div>
+      <p class="text-muted small mb-1">รายได้รวม</p>
+      <h3 class="fw-bold text-success mb-0" id="rpt_income">-</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card card border-0 shadow-sm text-center py-3">
+      <div class="stat-icon bg-danger-subtle text-danger mx-auto mb-2">
+        <i class="bi bi-receipt-cutoff"></i>
+      </div>
+      <p class="text-muted small mb-1">ค่าใช้จ่ายรวม</p>
+      <h3 class="fw-bold text-danger mb-0" id="rpt_expense">-</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card card border-0 shadow-sm text-center py-3">
+      <div class="stat-icon bg-primary-subtle text-primary mx-auto mb-2">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <p class="text-muted small mb-1">กำไรสุทธิ</p>
+      <h3 class="fw-bold text-primary mb-0" id="rpt_profit">-</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card card border-0 shadow-sm text-center py-3">
+      <div class="stat-icon bg-info-subtle text-info mx-auto mb-2">
+        <i class="bi bi-door-open"></i>
+      </div>
+      <p class="text-muted small mb-1">จำนวนการจอง</p>
+      <h3 class="fw-bold text-info mb-0" id="rpt_bookings">-</h3>
+    </div>
+  </div>
+</div>
+
+<!-- Chart -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent border-0">
+    <h6 class="fw-bold mb-0">กราฟรายได้รายวัน</h6>
+  </div>
+  <div class="card-body">
+    <canvas id="incomeChart" height="80"></canvas>
+  </div>
+</div>
+
+<!-- Expenses Section -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0"><i class="bi bi-receipt-cutoff me-2 text-danger"></i>รายการค่าใช้จ่าย</h6>
+        <button class="btn btn-sm btn-danger" onclick="openExpenseForm()">
+          <i class="bi bi-plus me-1"></i>เพิ่ม
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:300px;overflow-y:auto">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light sticky-top">
+              <tr><th>วันที่</th><th>หมวด</th><th>รายละเอียด</th><th>จำนวน</th><th></th></tr>
+            </thead>
+            <tbody id="expensesList">
+              <tr><td colspan="5" class="text-center text-muted py-3">กด "ดูรายงาน" เพื่อโหลดข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-info-circle me-2 text-info"></i>สรุปช่วงเวลา</h6>
+      </div>
+      <div class="card-body" id="rpt_period_label">
+        <p class="text-muted">กด "ดูรายงาน" เพื่อโหลดข้อมูล</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-receipt-cutoff me-2"></i>เพิ่มค่าใช้จ่าย</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">หมวดหมู่ <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="exp_category" list="expCatList" placeholder="เช่น ค่าน้ำ ค่าไฟ ค่าซ่อม">
+          <datalist id="expCatList">
+            <option value="ค่าน้ำ"><option value="ค่าไฟ"><option value="ค่าซ่อมบำรุง">
+            <option value="ค่าทำความสะอาด"><option value="ค่าอาหาร"><option value="ค่าวัสดุสิ้นเปลือง">
+            <option value="ค่าแรงงาน"><option value="ค่าอื่นๆ">
+          </datalist>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">จำนวนเงิน (บาท) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="exp_amount" min="0" step="1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">วันที่ <span class="text-danger">*</span></label>
+          <input type="text" class="form-control datepick" id="exp_date">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">รายละเอียด</label>
+          <textarea class="form-control" id="exp_desc" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-danger fw-semibold" onclick="saveExpense()">
+          <i class="bi bi-save me-1"></i>บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let incomeChart = null;
+
+function toggleDatePicker() {
+  const p = document.getElementById('rpt_period').value;
+  document.getElementById('dateFromWrap').style.display = p === 'day' ? 'none' : '';
+  document.getElementById('dateToWrap').style.display = p !== 'custom' ? 'none' : '';
+}
+toggleDatePicker();
+
+async function loadReport() {
+  const period = document.getElementById('rpt_period').value;
+  const from = document.getElementById('rpt_from').value;
+  const to = document.getElementById('rpt_to').value;
+
+  let url = `/api/reports/summary?period=${period}`;
+  if (from) url += `&date_from=${isoDate(from)}`;
+  if (to) url += `&date_to=${isoDate(to)}`;
+
+  const res = await fetch(url);
+  if (!res.ok) { showToast('ไม่มีสิทธิ์เข้าถึง', 'danger'); return; }
+  const data = await res.json();
+
+  document.getElementById('rpt_income').textContent = '฿' + Number(data.income).toLocaleString('th-TH', {minimumFractionDigits:0});
+  document.getElementById('rpt_expense').textContent = '฿' + Number(data.expenses).toLocaleString('th-TH', {minimumFractionDigits:0});
+  document.getElementById('rpt_profit').textContent = '฿' + Number(data.profit).toLocaleString('th-TH', {minimumFractionDigits:0});
+  document.getElementById('rpt_bookings').textContent = data.bookings_count + ' รายการ';
+
+  document.getElementById('rpt_period_label').innerHTML = `
+    <p class="mb-1"><strong>ช่วงเวลา:</strong> ${data.date_from} ถึง ${data.date_to}</p>
+    <p class="mb-1 text-success"><strong>รายได้:</strong> ฿${Number(data.income).toLocaleString()}</p>
+    <p class="mb-1 text-danger"><strong>ค่าใช้จ่าย:</strong> ฿${Number(data.expenses).toLocaleString()}</p>
+    <p class="mb-0 text-primary fw-bold"><strong>กำไร:</strong> ฿${Number(data.profit).toLocaleString()}</p>
+  `;
+
+  // Chart
+  const labels = Object.keys(data.daily_income).sort();
+  const values = labels.map(k => data.daily_income[k]);
+  if (incomeChart) incomeChart.destroy();
+  incomeChart = new Chart(document.getElementById('incomeChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'รายได้ (บาท)', data: values, backgroundColor: 'rgba(13,110,253,0.6)', borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Expense list
+  const tbody = document.getElementById('expensesList');
+  tbody.innerHTML = data.expenses_list.length ? data.expenses_list.map(e => `
+    <tr>
+      <td>${e.date}</td>
+      <td>${e.category}</td>
+      <td class="text-muted">${e.description||'-'}</td>
+      <td class="text-danger fw-semibold">฿${Number(e.amount).toLocaleString()}</td>
+      <td>
+        <button class="btn btn-xs btn-outline-danger" onclick="deleteExpense(${e.id})">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted py-3">ไม่มีรายการค่าใช้จ่าย</td></tr>';
+}
+
+function openExpenseForm() {
+  document.getElementById('exp_category').value = '';
+  document.getElementById('exp_amount').value = '';
+  document.getElementById('exp_desc').value = '';
+  const today = new Date().toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('exp_date').value = today;
+  new bootstrap.Modal(document.getElementById('expenseModal')).show();
+}
+
+async function saveExpense() {
+  const body = {
+    category: document.getElementById('exp_category').value,
+    amount: document.getElementById('exp_amount').value,
+    expense_date: isoDate(document.getElementById('exp_date').value),
+    description: document.getElementById('exp_desc').value,
+  };
+  if (!body.category || !body.amount) { showToast('กรุณากรอกข้อมูลให้ครบ', 'danger'); return; }
+  const res = await fetch('/api/expenses', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const data = await res.json();
+  showToast(data.message);
+  bootstrap.Modal.getInstance(document.getElementById('expenseModal')).hide();
+  loadReport();
+}
+
+async function deleteExpense(id) {
+  if (!confirm('ลบรายการนี้?')) return;
+  await fetch(`/api/expenses/${id}`, {method:'DELETE'});
+  loadReport();
+}
+</script>
+{% endblock %}

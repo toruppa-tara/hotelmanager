@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% block title %}ตารางห้องพัก — Hotel Manager{% endblock %}
+{% block breadcrumb %}ตารางห้องพัก / {{ month_name }} {{ year + 543 }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <h5 class="fw-bold mb-0"><i class="bi bi-calendar3 me-2 text-primary"></i>ตารางห้องพัก</h5>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <!-- Month navigation -->
+    <a href="/rooms?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-chevron-left"></i>
+    </a>
+    <span class="fw-semibold">{{ month_name }} {{ year + 543 }}</span>
+    <a href="/rooms?year={{ next_year }}&month={{ next_month }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-chevron-right"></i>
+    </a>
+    <a href="/rooms" class="btn btn-sm btn-outline-primary">วันนี้</a>
+
+    {% if perms.manage_rooms %}
+    <button class="btn btn-sm btn-outline-danger" onclick="openMaintenanceModal()">
+      <i class="bi bi-tools me-1"></i>ปิดห้อง/ซ่อม
+    </button>
+    <button class="btn btn-sm btn-warning" onclick="openRoomSettings()">
+      <i class="bi bi-gear me-1"></i>ตั้งค่าห้อง
+    </button>
+    {% endif %}
+    <button class="btn btn-sm btn-primary" onclick="openNewBooking(null, null)">
+      <i class="bi bi-plus-circle me-1"></i>จองห้อง
+    </button>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+  <span class="legend-item"><span class="legend-box legend-avail"></span> ว่าง</span>
+  <span class="legend-item"><span class="legend-box legend-paid"></span> ชำระครบ (รอเช็คอิน)</span>
+  <span class="legend-item"><span class="legend-box legend-checkedin"></span> เช็คอินแล้ว</span>
+  <span class="legend-item"><span class="legend-box legend-partial"></span> จอง / ค้างชำระ</span>
+  <span class="legend-item"><span class="legend-box legend-checkedout"></span> เช็คเอาต์แล้ว</span>
+  <span class="legend-item"><span class="legend-box legend-maint"></span> ซ่อมบำรุง</span>
+</div>
+
+<!-- Calendar Grid -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="room-grid-wrapper">
+      <table class="room-grid table table-bordered mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th class="room-label-col sticky-col">ห้อง</th>
+            {% for d in days %}
+            <th class="day-col text-center
+              {% if today.year == year and today.month == month and today.day == d %}today-col{% endif %}">
+              <div class="day-num">{{ d }}</div>
+              <div class="day-name text-muted" style="font-size:0.6rem">
+                {% set wd = ['จ','อ','พ','พฤ','ศ','ส','อา'] %}
+                {% set dummy = namespace(dow=0) %}
+                {%- if year and month -%}
+                  {# compute day of week #}
+                {%- endif -%}
+              </div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for room in rooms %}
+          {% set row_grid = grid.get(room.id, {}) %}
+          <tr>
+            <td class="room-label sticky-col">
+              <div class="room-label-inner">
+                <span class="room-number">{{ room.room_number }}</span>
+                <span class="room-name text-muted">{{ room.name }}</span>
+                <span class="room-price text-success">฿{{ "{:,.0f}".format(room.price_per_night) }}</span>
+              </div>
+            </td>
+            {% set ns = namespace(skip_until=0) %}
+            {% for d in days %}
+            {% set cell = row_grid.get(d) %}
+            {% set date_iso = '{}-{:02d}-{:02d}'.format(year, month, d) %}
+            {% if d < ns.skip_until %}
+            {# covered by colspan — skip #}
+            {% elif cell and cell.type == 'maintenance' %}
+            <td class="day-cell maint-cell" onclick="openMaintenanceModal({{ room.id }}, '{{ date_iso }}')"
+                title="🔧 {{ cell.note }}">
+              <span class="cell-icon"><i class="bi bi-tools"></i></span>
+            </td>
+            {% elif cell and cell.type == 'booking' %}
+            {% set ns.skip_until = d + cell.span %}
+            <td class="day-cell booking-td"
+                colspan="{{ cell.span }}"
+                draggable="true"
+                data-bid="{{ cell.booking_id }}"
+                data-checkin="{{ cell.check_in }}"
+                data-checkout="{{ cell.check_out }}"
+                data-dayoffset="0"
+                onclick="openBookingDetail({{ cell.booking_id }})"
+                title="{{ cell.guest }} — {% if cell.status == 'checked_out' %}เช็คเอาต์แล้ว{% elif cell.status == 'checked_in' %}เช็คอินแล้ว{% if cell.outstanding > 0 %} (ค้าง ฿{{ '{:,.0f}'.format(cell.outstanding) }}){% endif %}{% elif cell.outstanding == 0 %}ชำระครบ รอเช็คอิน{% else %}ค้าง ฿{{ '{:,.0f}'.format(cell.outstanding) }}{% endif %}">
+              <div class="booking-bar {{ cell.pay_class }}">
+                <span class="cell-guest">{{ (cell.guest or '')[:14] }}</span>
+                {% if cell.outstanding > 0 and cell.status != 'checked_out' %}
+                <span class="cell-sub cell-sub-debt">฿{{ '{:,.0f}'.format(cell.outstanding) }}</span>
+                {% else %}
+                <span class="cell-sub">ชำระแล้ว</span>
+                {% endif %}
+              </div>
+            </td>
+            {% else %}
+            <td class="day-cell avail-cell"
+                data-room-id="{{ room.id }}"
+                data-date="{{ date_iso }}"
+                onclick="openNewBooking({{ room.id }}, '{{ date_iso }}')">
+            </td>
+            {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Maintenance / Close Room Modal -->
+<div class="modal fade" id="maintenanceModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-tools me-2"></i>ปิดห้อง / ซ่อมบำรุง (ระบุช่วงวันที่)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">เลือกห้อง <span class="text-danger">*</span></label>
+            <select class="form-select" id="mt_room_id" onchange="loadRoomMaintenanceList()">
+              <option value="">-- เลือกห้อง --</option>
+              {% for room in rooms %}
+              <option value="{{ room.id }}">{{ room.room_number }} — {{ room.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">ตั้งแต่วันที่ <span class="text-danger">*</span></label>
+            <input type="text" class="form-control datepick" id="mt_start" placeholder="วัน/เดือน/ปี">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">ถึงวันที่ <span class="text-danger">*</span></label>
+            <input type="text" class="form-control datepick" id="mt_end" placeholder="วัน/เดือน/ปี">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">หมายเหตุ / สาเหตุ</label>
+            <textarea class="form-control" id="mt_note" rows="2" placeholder="เช่น แอร์เสีย, ทาสีใหม่, ห้องน้ำซ่อมท่อ..."></textarea>
+          </div>
+          <div class="col-12 text-end">
+            <button id="mt_btn_close" class="btn btn-danger" onclick="createMaintenance()">
+              <i class="bi bi-plus-circle me-1"></i>เพิ่มการปิดห้อง
+            </button>
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <h6 class="fw-bold mb-2"><i class="bi bi-list-ul me-1"></i>รายการปิดห้องของห้องนี้</h6>
+        <div id="mt_existing_list">
+          <p class="text-muted small">เลือกห้องเพื่อดูรายการ</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Room Settings Modal -->
+<div class="modal fade" id="roomSettingsModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title fw-bold"><i class="bi bi-gear me-2"></i>ตั้งค่าห้องพัก</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-end mb-2">
+          <button class="btn btn-sm btn-success" onclick="addNewRoom()">
+            <i class="bi bi-plus me-1"></i>เพิ่มห้อง
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover" id="roomSettingsTable">
+            <thead class="table-light">
+              <tr><th>เลขห้อง</th><th>ชื่อห้อง</th><th>ราคา/คืน</th><th>สถานะ</th><th>หมายเหตุ</th><th></th></tr>
+            </thead>
+            <tbody id="roomSettingsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include "partials/booking_modal.html" %}
+
+<script>
+// Pass staff list from server to JS
+window.STAFF_LIST = [{% for s in staff_list %}{"id":{{ s.id }},"full_name":"{{ s.full_name }}"}{% if not loop.last %},{% endif %}{% endfor %}];
+window.ROOMS_LIST = null; // loaded on demand
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Drag-and-drop booking cells ─────────────────────────────
+let _drag = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('.room-grid');
+  if (!grid) return;
+
+  // Booking cells: make draggable
+  grid.addEventListener('dragstart', e => {
+    const td = e.target.closest('.booking-td[data-bid]');
+    if (!td) return;
+    _drag = {
+      bid: td.dataset.bid,
+      checkin: td.dataset.checkin,
+      checkout: td.dataset.checkout,
+      offset: parseInt(td.dataset.dayoffset)
+    };
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => {
+      document.querySelectorAll(`[data-bid="${_drag.bid}"] .booking-bar`).forEach(b => b.classList.add('dragging-bar'));
+    }, 0);
+  });
+
+  grid.addEventListener('dragend', () => {
+    document.querySelectorAll('.booking-bar').forEach(b => b.classList.remove('dragging-bar'));
+    document.querySelectorAll('.avail-cell').forEach(c => c.classList.remove('drag-over'));
+    _drag = null;
+  });
+
+  // Empty cells: drop targets
+  grid.addEventListener('dragover', e => {
+    if (!_drag) return;
+    const td = e.target.closest('.avail-cell[data-date]');
+    if (!td) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.avail-cell').forEach(c => c.classList.remove('drag-over'));
+    td.classList.add('drag-over');
+  });
+
+  grid.addEventListener('dragleave', e => {
+    const td = e.target.closest('.avail-cell');
+    if (td) td.classList.remove('drag-over');
+  });
+
+  grid.addEventListener('drop', async e => {
+    e.preventDefault();
+    const td = e.target.closest('.avail-cell[data-date]');
+    if (!td || !_drag) return;
+    document.querySelectorAll('.avail-cell').forEach(c => c.classList.remove('drag-over'));
+
+    const roomId = td.dataset.roomId;
+    const dropDate = td.dataset.date;
+    const nights = (new Date(_drag.checkout) - new Date(_drag.checkin)) / 86400000;
+    const newCI = new Date(dropDate);
+    newCI.setDate(newCI.getDate() - _drag.offset);
+    const newCO = new Date(newCI);
+    newCO.setDate(newCI.getDate() + nights);
+    const fmt = d => d.toISOString().split('T')[0];
+
+    if (!confirm(`ย้ายการจองไปวันที่ ${fmt(newCI)} — ${fmt(newCO)}?`)) return;
+
+    const res = await fetch(`/api/bookings/${_drag.bid}/move`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ room_id: parseInt(roomId), check_in_date: fmt(newCI), check_out_date: fmt(newCO) })
+    });
+    const data = await res.json();
+    if (res.ok) { showToast('ย้ายการจองเรียบร้อย'); setTimeout(() => location.reload(), 600); }
+    else { showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger'); }
+  });
+});
+</script>
+<script>
+// Group hover: highlight all cells of same booking together
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('.room-grid');
+  if (!grid) return;
+  grid.addEventListener('mouseover', e => {
+    const td = e.target.closest('[data-bid]');
+    if (!td) return;
+    document.querySelectorAll(`[data-bid="${td.dataset.bid}"] .booking-bar`)
+      .forEach(el => el.classList.add('hovered'));
+  });
+  grid.addEventListener('mouseout', e => {
+    const td = e.target.closest('[data-bid]');
+    if (!td) return;
+    document.querySelectorAll(`[data-bid="${td.dataset.bid}"] .booking-bar`)
+      .forEach(el => el.classList.remove('hovered'));
+  });
+});
+
+// Populate staff dropdown in booking modal
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('bm_staff_id');
+  if (sel) {
+    {% for s in staff_list %}
+    sel.innerHTML += `<option value="{{ s.id }}">{{ s.full_name }}</option>`;
+    {% endfor %}
+  }
+  loadRoomsToModal();
+});
+
+async function loadRoomsToModal() {
+  const res = await fetch('/api/rooms');
+  const rooms = await res.json();
+  window.ROOMS_LIST = rooms;
+  const sel = document.getElementById('bm_room_select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- เลือกห้อง --</option>';
+  rooms.forEach(r => {
+    sel.innerHTML += `<option value="${r.id}" data-price="${r.price_per_night}">${r.room_number} — ${r.name} (฿${r.price_per_night.toLocaleString()}/คืน)</option>`;
+  });
+  sel.addEventListener('change', () => {
+    const opt = sel.options[sel.selectedIndex];
+    const price = opt.dataset.price || 0;
+    document.getElementById('bm_room_price').value = price;
+    calcTotal();
+  });
+}
+
+function openNewBooking(roomId, dateStr) {
+  resetBookingModal();
+  document.getElementById('bookingModalTitle').innerHTML = '<i class="bi bi-calendar-plus me-2"></i>จองห้องพักใหม่';
+  if (roomId) {
+    const sel = document.getElementById('bm_room_select');
+    setTimeout(() => { sel.value = roomId; sel.dispatchEvent(new Event('change')); }, 100);
+  }
+  if (dateStr) {
+    document.getElementById('bm_check_in').value = formatDateTH(dateStr);
+    document.getElementById('bm_check_out').value = formatDateTH(addDays(dateStr, 1));
+    calcNights();
+  }
+  new bootstrap.Modal(document.getElementById('bookingModal')).show();
+}
+
+// ─── Maintenance modal ────────────────────────────────────────────────
+function openMaintenanceModal(preRoomId, preDate) {
+  document.getElementById('mt_room_id').value = preRoomId || '';
+  document.getElementById('mt_note').value = '';
+  if (preDate) {
+    document.getElementById('mt_start').value = formatDateTH(preDate);
+    document.getElementById('mt_end').value = formatDateTH(preDate);
+  } else {
+    document.getElementById('mt_start').value = '';
+    document.getElementById('mt_end').value = '';
+  }
+  document.getElementById('mt_existing_list').innerHTML = preRoomId
+    ? '<p class="text-muted small">กำลังโหลด...</p>'
+    : '<p class="text-muted small">เลือกห้องเพื่อดูรายการ</p>';
+  if (preRoomId) loadRoomMaintenanceList();
+  new bootstrap.Modal(document.getElementById('maintenanceModal')).show();
+}
+
+// Triggered when clicking on a maintenance cell — opens modal pre-selected to that room
+async function openRoomEdit(roomId) {
+  openMaintenanceModal(roomId, null);
+}
+
+async function loadRoomMaintenanceList() {
+  const rid = document.getElementById('mt_room_id').value;
+  const container = document.getElementById('mt_existing_list');
+  if (!rid) {
+    container.innerHTML = '<p class="text-muted small">เลือกห้องเพื่อดูรายการ</p>';
+    return;
+  }
+  const res = await fetch(`/api/maintenances?room_id=${rid}`);
+  const items = await res.json();
+  if (!items.length) {
+    container.innerHTML = '<p class="text-muted small">ยังไม่มีรายการปิดห้องสำหรับห้องนี้</p>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem">
+        <thead class="table-light">
+          <tr><th>ตั้งแต่</th><th>ถึง</th><th>หมายเหตุ</th><th style="width:60px"></th></tr>
+        </thead>
+        <tbody>
+          ${items.map(m => `
+            <tr>
+              <td>${m.start_date}</td>
+              <td>${m.end_date}</td>
+              <td>${m.note || '<em class="text-muted">-</em>'}</td>
+              <td class="text-center">
+                <button class="btn btn-xs btn-outline-danger" onclick="deleteMaintenance(${m.id})" title="ยกเลิก">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function createMaintenance() {
+  const rid = document.getElementById('mt_room_id').value;
+  const start = isoDate(document.getElementById('mt_start').value);
+  const end = isoDate(document.getElementById('mt_end').value);
+  const note = document.getElementById('mt_note').value.trim();
+
+  if (!rid) { showToast('กรุณาเลือกห้อง', 'danger'); return; }
+  if (!start || !end) { showToast('กรุณาระบุช่วงวันที่', 'danger'); return; }
+
+  const res = await fetch('/api/maintenances', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({room_id: rid, start_date: start, end_date: end, note})
+  });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger'); return; }
+  showToast(data.message);
+  // Clear form for next entry, reload list
+  document.getElementById('mt_start').value = '';
+  document.getElementById('mt_end').value = '';
+  document.getElementById('mt_note').value = '';
+  await loadRoomMaintenanceList();
+  // Reload page after a short delay so calendar grid updates
+  setTimeout(() => location.reload(), 1200);
+}
+
+async function deleteMaintenance(mid) {
+  if (!confirm('ยืนยันยกเลิกการปิดห้องนี้?')) return;
+  const res = await fetch(`/api/maintenances/${mid}`, { method:'DELETE' });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'ลบไม่สำเร็จ', 'danger'); return; }
+  showToast(data.message);
+  await loadRoomMaintenanceList();
+  setTimeout(() => location.reload(), 800);
+}
+
+function openRoomSettings() {
+  loadRoomSettingsTable();
+  new bootstrap.Modal(document.getElementById('roomSettingsModal')).show();
+}
+
+async function loadRoomSettingsTable() {
+  const res = await fetch('/api/rooms');
+  const rooms = await res.json();
+  window.ROOMS_LIST = rooms;
+  const tbody = document.getElementById('roomSettingsBody');
+  tbody.innerHTML = '';
+  rooms.forEach(r => {
+    tbody.innerHTML += `
+      <tr id="rrow_${r.id}">
+        <td><input class="form-control form-control-sm" value="${r.room_number}" id="rn_${r.id}"></td>
+        <td><input class="form-control form-control-sm" value="${r.name}" id="rnm_${r.id}"></td>
+        <td><input class="form-control form-control-sm" type="number" value="${r.price_per_night}" id="rp_${r.id}"></td>
+        <td>
+          <select class="form-select form-select-sm" id="rs_${r.id}">
+            <option value="available" ${r.status==='available'?'selected':''}>ว่าง</option>
+            <option value="maintenance" ${r.status==='maintenance'?'selected':''}>ซ่อมบำรุง</option>
+          </select>
+        </td>
+        <td><input class="form-control form-control-sm" value="${r.description||''}" id="rd_${r.id}"></td>
+        <td>
+          <button class="btn btn-xs btn-primary" onclick="saveRoom(${r.id})"><i class="bi bi-save"></i></button>
+        </td>
+      </tr>`;
+  });
+}
+
+async function saveRoom(id) {
+  const newNumber = document.getElementById(`rn_${id}`).value.trim();
+  if (!newNumber) { showToast('กรุณากรอกเลขห้อง', 'danger'); return; }
+  const body = {
+    room_number: newNumber,
+    name: document.getElementById(`rnm_${id}`).value,
+    price_per_night: document.getElementById(`rp_${id}`).value,
+    status: document.getElementById(`rs_${id}`).value,
+    description: document.getElementById(`rd_${id}`).value,
+  };
+  const res = await fetch(`/api/rooms/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger');
+    return;
+  }
+  showToast('บันทึกเรียบร้อย — กำลังรีเฟรชหน้า...');
+  // Reload page so the calendar grid shows updated room info
+  setTimeout(() => location.reload(), 800);
+}
+
+async function addNewRoom() {
+  const num = prompt('เลขห้อง (เช่น 105):');
+  if (!num) return;
+  const name = prompt('ชื่อห้อง:') || num;
+  const price = prompt('ราคา/คืน:') || '0';
+  await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({room_number:num, name, price_per_night:price})});
+  loadRoomSettingsTable();
+  location.reload();
+}
+</script>
+{% endblock %}
