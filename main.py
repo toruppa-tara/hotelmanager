@@ -88,6 +88,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Hotel Manager", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+
+# Ensure uploads directory exists (not in git, must create on cloud)
+_uploads_dir = os.path.join(BASE_DIR, "uploads", "logos")
+os.makedirs(_uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=os.path.join(BASE_DIR, "uploads")), name="uploads")
 
 # cache_size=0 avoids LRU dict-key bug on Python 3.14
