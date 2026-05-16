@@ -108,21 +108,23 @@ seed_role_permissions()
 
 def seed_initial_data():
     """Create default admin user, 19 rooms, and invoice settings on first run."""
+    import sys, traceback
     from auth import get_password_hash
     from models import InvoiceSetting
     db = SessionLocal()
     try:
+        print("[seed] starting...", flush=True)
         # Default owner
         if not db.query(User).filter(User.username == "admin").first():
             db.add(User(
                 username="admin",
                 password_hash=get_password_hash("admin1234"),
-                full_name="เจ้าของโรงแรม",
+                full_name="Owner",
                 role="owner",
                 salary=0,
                 is_active=True,
             ))
-            print("[OK] Created admin account: username=admin password=admin1234")
+            print("[seed] admin user added", flush=True)
         # 19 rooms
         room_configs = [
             ("101", "Standard A", 800),  ("102", "Standard B", 800),
@@ -142,18 +144,28 @@ def seed_initial_data():
         # Default invoice settings
         if not db.query(InvoiceSetting).first():
             db.add(InvoiceSetting(
-                company_name="โรงแรมของฉัน",
-                address="123 ถนนสุขุมวิท กรุงเทพฯ 10110",
+                company_name="My Hotel",
+                address="123 Sukhumvit Rd, Bangkok 10110",
                 phone="02-000-0000",
                 tax_id="",
-                bank_info="ธนาคารกสิกรไทย  เลขบัญชี 000-0-00000-0\nชื่อบัญชี โรงแรมของฉัน",
-                footer_notes="ขอบคุณที่ใช้บริการ",
+                bank_info="Bank Account",
+                footer_notes="Thank you",
             ))
         db.commit()
+        print("[seed] commit OK", flush=True)
+    except Exception as e:
+        print(f"[seed] ERROR: {e}", flush=True)
+        traceback.print_exc()
+        db.rollback()
     finally:
         db.close()
 
-seed_initial_data()
+try:
+    seed_initial_data()
+except Exception as e:
+    import traceback
+    print(f"[startup] seed_initial_data crashed: {e}", flush=True)
+    traceback.print_exc()
 
 def migrate_db():
     # On PostgreSQL (cloud), Base.metadata.create_all() already creates all tables
