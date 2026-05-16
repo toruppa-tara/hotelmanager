@@ -381,6 +381,28 @@ async def logout():
     return response
 
 
+@app.post("/api/change-password")
+async def api_change_password(request: Request, db: Session = Depends(get_db)):
+    user_data = get_current_user_from_cookie(request)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="กรุณาเข้าสู่ระบบ")
+    data = await request.json()
+    current = (data.get("current_password") or "").strip()
+    new_pwd = (data.get("new_password") or "").strip()
+    if not current or not new_pwd:
+        raise HTTPException(status_code=400, detail="กรุณากรอกรหัสผ่านให้ครบ")
+    if len(new_pwd) < 4:
+        raise HTTPException(status_code=400, detail="รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร")
+    user = db.query(User).filter(User.id == int(user_data.get("sub"))).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้")
+    if not verify_password(current, user.password_hash):
+        raise HTTPException(status_code=400, detail="รหัสผ่านเดิมไม่ถูกต้อง")
+    user.password_hash = get_password_hash(new_pwd)
+    db.commit()
+    return {"message": "เปลี่ยนรหัสผ่านเรียบร้อย"}
+
+
 # ─────────────────────────────────────────────
 #  Dashboard
 # ─────────────────────────────────────────────
