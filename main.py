@@ -106,6 +106,11 @@ templates = Jinja2Templates(env=_jinja_env)
 seed_role_permissions()
 
 def migrate_db():
+    # On PostgreSQL (cloud), Base.metadata.create_all() already creates all tables
+    # from models.py. Skip the SQLite-specific raw-SQL migration.
+    if engine.dialect.name != "sqlite":
+        return
+
     from sqlalchemy import text
     with engine.connect() as conn:
         # bookings table
