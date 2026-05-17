@@ -89,7 +89,7 @@
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="background:#f1f5f9;">
         <input type="hidden" id="mem_id">
         <div class="row g-3">
           <div class="col-md-8">
@@ -98,7 +98,7 @@
           </div>
           <div class="col-md-4">
             <label class="form-label fw-semibold">ประเภท</label>
-            <select class="form-select" id="mem_is_corporate">
+            <select class="form-select" id="mem_is_corporate" onchange="updateIdCardLabel()">
               <option value="false">บุคคลธรรมดา</option>
               <option value="true">นิติบุคคล</option>
             </select>
@@ -112,8 +112,8 @@
             <input type="email" class="form-control" id="mem_email">
           </div>
           <div class="col-md-6">
-            <label class="form-label">เลขบัตรประชาชน / Passport</label>
-            <input type="text" class="form-control" id="mem_id_card">
+            <label class="form-label" id="mem_id_card_label">เลขบัตรประชาชน / Passport</label>
+            <input type="text" class="form-control" id="mem_id_card" placeholder="เลข 13 หลัก">
           </div>
           <div class="col-md-6">
             <label class="form-label">ชื่อบริษัท / องค์กร</label>
@@ -185,7 +185,21 @@ async function openMemberForm(id = null) {
     ['mem_name','mem_phone','mem_email','mem_id_card','mem_company','mem_address','mem_notes'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('mem_is_corporate').value = 'false';
   }
+  updateIdCardLabel();
   new bootstrap.Modal(document.getElementById('memberModal')).show();
+}
+
+function updateIdCardLabel() {
+  const isCorp = document.getElementById('mem_is_corporate').value === 'true';
+  const label = document.getElementById('mem_id_card_label');
+  const input = document.getElementById('mem_id_card');
+  if (isCorp) {
+    label.innerHTML = 'เลขผู้เสียภาษี <span class="text-muted small">(นิติบุคคล)</span>';
+    input.placeholder = 'เลขผู้เสียภาษี 13 หลัก';
+  } else {
+    label.textContent = 'เลขบัตรประชาชน / Passport';
+    input.placeholder = 'เลข 13 หลัก';
+  }
 }
 
 async function saveMember() {

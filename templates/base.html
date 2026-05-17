@@ -173,7 +173,16 @@ async function submitChangePassword() {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="/static/js/app.js?v=11"></script>
+<script>
+  // Expose current user info for JS (defaults to null if not logged in)
+  window.CURRENT_USER = {% if current_user %}{
+    id: {{ current_user.sub or current_user.id or 'null' }},
+    username: "{{ current_user.username }}",
+    full_name: "{{ current_user.full_name }}",
+    role: "{{ current_user.role }}"
+  }{% else %}null{% endif %};
+</script>
+<script src="/static/js/app.js?v=12"></script>
 <script>
   document.getElementById('sidebarToggle')?.addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('collapsed');

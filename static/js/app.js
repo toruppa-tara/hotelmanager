@@ -90,8 +90,19 @@ function resetBookingModal() {
   if (secNote) secNote.value = '';
   onSecTypeChange();
   clearExtraCharges();
+  // Clear member search text (was retaining previous guest's name)
+  const memberSearch = document.getElementById('bm_member_search');
+  if (memberSearch) memberSearch.value = '';
   document.getElementById('bm_member_info').innerHTML = '';
   document.getElementById('memberSearchResults').style.display = 'none';
+  // Default staff = current logged-in user
+  const staffSel = document.getElementById('bm_staff_id');
+  if (staffSel && window.CURRENT_USER && window.CURRENT_USER.id) {
+    staffSel.value = String(window.CURRENT_USER.id);
+  }
+  // Clear inline-invalid state on guest_name (from prior submit attempts)
+  const gn = document.getElementById('bm_guest_name');
+  if (gn) gn.classList.remove('is-invalid');
   document.getElementById('paymentSection').style.display = 'none';
   document.getElementById('btnCancelBooking').style.display = 'none';
   document.getElementById('btnViewInvoice').style.display = 'none';
