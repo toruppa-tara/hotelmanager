@@ -1,10 +1,11 @@
+import os
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Request, HTTPException, status
 
-SECRET_KEY = "hotel_manager_secret_key_CHANGE_THIS_IN_PRODUCTION_2024"
+SECRET_KEY = os.getenv("SECRET_KEY", "hotel_manager_secret_key_CHANGE_THIS_IN_PRODUCTION_2024")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 12
 
