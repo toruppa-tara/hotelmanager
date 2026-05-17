@@ -198,8 +198,17 @@
         </td>
         <td class="text-right">{{ "{:,.0f}".format(booking.room_price) }}</td>
         <td class="text-right">{{ booking.num_nights }}</td>
-        <td class="text-right"><strong>{{ "{:,.0f}".format(booking.total_price) }}</strong></td>
+        <td class="text-right"><strong>{{ "{:,.0f}".format(room_subtotal) }}</strong></td>
       </tr>
+      {% for ex in extras %}
+      <tr>
+        <td>{{ loop.index + 1 }}</td>
+        <td>{{ ex.name }}</td>
+        <td class="text-right">—</td>
+        <td class="text-right">—</td>
+        <td class="text-right"><strong>{{ "{:,.0f}".format(ex.amount) }}</strong></td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
 

@@ -79,6 +79,8 @@ class Booking(Base):
     security_deposit = Column(Float, default=200)
     security_deposit_type = Column(String(50), default="cash")  # cash | id_card | none | other
     security_deposit_note = Column(String(200), default="")
+    # JSON list: [{"name": "ที่นอนเสริม", "amount": 100}, ...]
+    extra_charges = Column(Text, default="[]")
     created_at = Column(DateTime, default=datetime.now)
 
     room = relationship("Room", back_populates="bookings")

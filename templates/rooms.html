@@ -181,7 +181,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="d-flex justify-content-end mb-2">
+        <div class="d-flex justify-content-end mb-2 gap-2">
+          {% if current_user and current_user.role == 'owner' %}
+          <button class="btn btn-sm btn-outline-warning" onclick="resetDefaultRooms()" title="ลบทุกห้อง (ที่ไม่มีการจอง) แล้วสร้างใหม่ตามค่าเริ่มต้น">
+            <i class="bi bi-arrow-clockwise me-1"></i>รีเซ็ตห้องเริ่มต้น
+          </button>
+          {% endif %}
           <button class="btn btn-sm btn-success" onclick="addNewRoom()">
             <i class="bi bi-plus me-1"></i>เพิ่มห้อง
           </button>
@@ -513,6 +518,19 @@ async function deleteRoom(id, roomNumber) {
   showToast(data.message || 'ลบเรียบร้อย');
   // Calendar grid is server-rendered → schedule reload after a short delay
   setTimeout(() => location.reload(), 1200);
+}
+
+async function resetDefaultRooms() {
+  if (!confirm('⚠️ การรีเซ็ตจะลบห้องทั้งหมดที่ไม่มีการจอง แล้วสร้างห้องเริ่มต้น 19 ห้องใหม่\n(A01-A10, B01-B09)\n\nยืนยันรีเซ็ต?')) return;
+  const res = await fetch('/api/rooms/reset-defaults', { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.detail || 'รีเซ็ตไม่สำเร็จ', 'danger');
+    return;
+  }
+  showToast(data.message || 'รีเซ็ตเรียบร้อย');
+  await loadRoomSettingsTable();
+  setTimeout(() => location.reload(), 1500);
 }
 
 async function addNewRoom() {

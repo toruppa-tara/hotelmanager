@@ -89,6 +89,7 @@ function resetBookingModal() {
   const secNote = document.getElementById('bm_sec_note');
   if (secNote) secNote.value = '';
   onSecTypeChange();
+  clearExtraCharges();
   document.getElementById('bm_member_info').innerHTML = '';
   document.getElementById('memberSearchResults').style.display = 'none';
   document.getElementById('paymentSection').style.display = 'none';
@@ -127,7 +128,8 @@ function calcNights() {
 function calcTotal() {
   const price = parseFloat(document.getElementById('bm_room_price')?.value) || 0;
   const nights = parseInt(document.getElementById('bm_num_nights')?.value) || 0;
-  const total = price * nights;
+  const extras = getExtraChargesTotal();
+  const total = (price * nights) + extras;
   document.getElementById('bm_total_price').value = total;
   calcOutstanding();
 }
@@ -136,6 +138,53 @@ function calcOutstanding() {
   const total = parseFloat(document.getElementById('bm_total_price')?.value) || 0;
   const deposit = parseFloat(document.getElementById('bm_deposit_amount')?.value) || 0;
   document.getElementById('bm_outstanding').value = Math.max(0, total - deposit);
+}
+
+// ── Extra Charges helpers ────────────────────────────────────────────
+function getExtraCharges() {
+  const rows = document.querySelectorAll('#extraChargesBody .extra-row');
+  const items = [];
+  rows.forEach(r => {
+    const name = r.querySelector('.extra-name').value.trim();
+    const amount = parseFloat(r.querySelector('.extra-amount').value) || 0;
+    if (name && amount > 0) items.push({ name, amount });
+  });
+  return items;
+}
+
+function getExtraChargesTotal() {
+  return getExtraCharges().reduce((sum, x) => sum + x.amount, 0);
+}
+
+function updateExtraChargesTotal() {
+  const total = getExtraChargesTotal();
+  const badge = document.getElementById('extraChargesTotal');
+  if (badge) badge.textContent = '฿' + total.toLocaleString();
+  calcTotal();
+}
+
+function addExtraChargeRow(name = '', amount = '') {
+  const body = document.getElementById('extraChargesBody');
+  if (!body) return;
+  const row = document.createElement('div');
+  row.className = 'extra-row d-flex gap-2 mb-1 align-items-center';
+  row.innerHTML = `
+    <input type="text" class="form-control form-control-sm extra-name" placeholder="ชื่อรายการ เช่น ที่นอนเสริม" value="${name}" oninput="updateExtraChargesTotal()">
+    <div class="input-group input-group-sm" style="width:160px">
+      <span class="input-group-text">฿</span>
+      <input type="number" class="form-control extra-amount" placeholder="0" min="0" step="1" value="${amount}" oninput="updateExtraChargesTotal()">
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove(); updateExtraChargesTotal();" title="ลบรายการ">
+      <i class="bi bi-x-lg"></i>
+    </button>`;
+  body.appendChild(row);
+}
+
+function clearExtraCharges() {
+  const body = document.getElementById('extraChargesBody');
+  if (body) body.innerHTML = '';
+  const badge = document.getElementById('extraChargesTotal');
+  if (badge) badge.textContent = '฿0';
 }
 
 async function openBookingDetail(bookingId) {
@@ -183,6 +232,13 @@ async function openBookingDetail(bookingId) {
   if (secNote) secNote.value = b.security_deposit_note || '';
   onSecTypeChange();
 
+  // Populate extra charges from server (b.extra_charges is an array)
+  clearExtraCharges();
+  if (Array.isArray(b.extra_charges)) {
+    b.extra_charges.forEach(x => addExtraChargeRow(x.name, x.amount));
+  }
+  updateExtraChargesTotal();
+
   document.getElementById('paymentSection').style.display = '';
   document.getElementById('pay_date').value = formatDateTH(new Date().toISOString().slice(0,10));
   document.getElementById('btnCancelBooking').style.display = b.status !== 'cancelled' ? '' : 'none';
@@ -224,6 +280,7 @@ async function saveBooking() {
       security_deposit: parseFloat(document.getElementById('bm_sec_deposit')?.value) || 0,
       security_deposit_type: document.getElementById('bm_sec_type')?.value || 'cash',
       security_deposit_note: document.getElementById('bm_sec_note')?.value || '',
+      extra_charges: getExtraCharges(),
     };
 
     if (!body.room_id) { showToast('กรุณาเลือกห้องพัก', 'danger'); return; }

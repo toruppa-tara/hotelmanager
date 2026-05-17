@@ -32,6 +32,19 @@ FEATURES = [
 ]
 FEATURE_KEYS = [k for k, _ in FEATURES]
 
+# Default room layout — 19 rooms total
+# A01-A10, B01-B09 — all "Double Bedroom" @ 400 except:
+#   A05, A07, A08, B06, B07 → "Triple Bedroom" @ 550
+TRIPLE_ROOMS = {"A05", "A07", "A08", "B06", "B07"}
+DEFAULT_ROOMS = []
+for prefix, count in [("A", 10), ("B", 9)]:
+    for i in range(1, count + 1):
+        num = f"{prefix}{i:02d}"
+        if num in TRIPLE_ROOMS:
+            DEFAULT_ROOMS.append((num, "Triple Bedroom", 550))
+        else:
+            DEFAULT_ROOMS.append((num, "Double Bedroom", 400))
+
 # Default permissions matrix used when seeding for the first time
 DEFAULT_PERMISSIONS = {
     "manager": {"manage_rooms": True},     # was previously the only feature managers had
@@ -126,19 +139,7 @@ def seed_initial_data():
             salary=0,
             is_active=True,
         ))
-        room_configs = [
-            ("101", "Standard A", 800),  ("102", "Standard B", 800),
-            ("103", "Standard C", 800),  ("104", "Standard D", 800),
-            ("105", "Standard E", 800),  ("106", "Deluxe A",  1200),
-            ("107", "Deluxe B",  1200), ("108", "Deluxe C",  1200),
-            ("109", "Deluxe D",  1200), ("110", "Deluxe E",  1200),
-            ("201", "Superior A", 1500), ("202", "Superior B", 1500),
-            ("203", "Superior C", 1500), ("204", "Superior D", 1500),
-            ("205", "Superior E", 1500), ("301", "Suite A",   2500),
-            ("302", "Suite B",   2500), ("303", "Suite C",   2500),
-            ("304", "Penthouse", 4500),
-        ]
-        for number, name, price in room_configs:
+        for number, name, price in DEFAULT_ROOMS:
             db.add(Room(room_number=number, name=name, price_per_night=price))
         db.add(InvoiceSetting(
             company_name="My Hotel",
@@ -165,12 +166,22 @@ except Exception as e:
     traceback.print_exc()
 
 def migrate_db():
-    # On PostgreSQL (cloud), Base.metadata.create_all() already creates all tables
-    # from models.py. Skip the SQLite-specific raw-SQL migration.
+    from sqlalchemy import text
+
+    # ── PostgreSQL: only add columns introduced after the initial schema
     if engine.dialect.name != "sqlite":
+        with engine.connect() as conn:
+            for table, col, ddl in [
+                ("bookings", "extra_charges", "TEXT DEFAULT '[]'"),
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+                    conn.commit()
+                except Exception:
+                    pass  # column already exists
         return
 
-    from sqlalchemy import text
+
     with engine.connect() as conn:
         # bookings table
         for col, ddl in [
@@ -597,6 +608,34 @@ async def api_delete_maintenance(mid: int, request: Request, db: Session = Depen
     return {"message": "ยกเลิกการปิดห้องเรียบร้อย"}
 
 
+@app.post("/api/rooms/reset-defaults")
+async def api_reset_default_rooms(request: Request, db: Session = Depends(get_db)):
+    """Owner-only: wipe rooms with no booking history and recreate the default 19 rooms."""
+    user = get_current_user_from_cookie(request)
+    if not user or user.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="เฉพาะเจ้าของเท่านั้น")
+
+    # Check for rooms that have bookings — cannot wipe those
+    booked_ids = {b.room_id for b in db.query(Booking).all()}
+    locked = db.query(Room).filter(Room.id.in_(booked_ids)).all() if booked_ids else []
+    if locked:
+        names = ", ".join(r.room_number for r in locked)
+        raise HTTPException(
+            status_code=400,
+            detail=f"ลบไม่ได้: ห้องเหล่านี้มีประวัติการจอง: {names}"
+        )
+
+    # Safe to wipe everything (no bookings exist)
+    db.query(Maintenance).delete()
+    db.query(Room).delete()
+    db.commit()
+
+    for number, name, price in DEFAULT_ROOMS:
+        db.add(Room(room_number=number, name=name, price_per_night=price))
+    db.commit()
+    return {"message": f"รีเซ็ตห้องเริ่มต้น {len(DEFAULT_ROOMS)} ห้องเรียบร้อย"}
+
+
 @app.delete("/api/rooms/{room_id}")
 async def api_delete_room(room_id: int, request: Request, db: Session = Depends(get_db)):
     require_permission(request, "manage_rooms", db)
@@ -666,7 +705,32 @@ async def api_get_booking(booking_id: int, request: Request, db: Session = Depen
         "security_deposit": b.security_deposit or 0,
         "security_deposit_type": b.security_deposit_type or "cash",
         "security_deposit_note": b.security_deposit_note or "",
+        "extra_charges": _parse_extras(b.extra_charges),
     }
+
+
+def _parse_extras(raw):
+    """Safely parse the JSON extra_charges field into a list of {name, amount} dicts."""
+    if not raw:
+        return []
+    try:
+        items = json.loads(raw) if isinstance(raw, str) else raw
+        out = []
+        for it in items or []:
+            name = str(it.get("name") or "").strip()
+            try:
+                amount = float(it.get("amount") or 0)
+            except (TypeError, ValueError):
+                amount = 0
+            if name and amount > 0:
+                out.append({"name": name, "amount": amount})
+        return out
+    except Exception:
+        return []
+
+
+def _extras_total(items):
+    return sum(float(x.get("amount") or 0) for x in (items or []))
 
 
 @app.post("/api/bookings")
@@ -707,7 +771,8 @@ async def api_create_booking(request: Request, db: Session = Depends(get_db)):
             detail=f"ห้องนี้ถูกปิดซ่อมในช่วง {maint_conflict.start_date} – {maint_conflict.end_date}")
 
     room_price = float(data.get("room_price") or room.price_per_night)
-    total_price = room_price * num_nights
+    extras = _parse_extras(data.get("extra_charges"))
+    total_price = room_price * num_nights + _extras_total(extras)
     deposit_amount = float(data.get("deposit_amount") or 0)
 
     # Member handling
@@ -737,6 +802,7 @@ async def api_create_booking(request: Request, db: Session = Depends(get_db)):
         security_deposit=float(data.get("security_deposit") or 200),
         security_deposit_type=data.get("security_deposit_type", "cash"),
         security_deposit_note=data.get("security_deposit_note", ""),
+        extra_charges=json.dumps(extras, ensure_ascii=False),
     )
     db.add(booking); db.commit(); db.refresh(booking)
 
@@ -767,10 +833,14 @@ async def api_update_booking(booking_id: int, request: Request, db: Session = De
     if "check_out_date" in data:
         b.check_out_date = date.fromisoformat(data["check_out_date"])
         b.num_nights = (b.check_out_date - b.check_in_date).days
-        b.total_price = b.room_price * b.num_nights
     if "room_price" in data:
         b.room_price = float(data["room_price"])
-        b.total_price = b.room_price * b.num_nights
+    if "extra_charges" in data:
+        extras = _parse_extras(data["extra_charges"])
+        b.extra_charges = json.dumps(extras, ensure_ascii=False)
+    # Recompute total = room_price × nights + sum(extras)
+    extras_total = _extras_total(_parse_extras(b.extra_charges))
+    b.total_price = (b.room_price or 0) * (b.num_nights or 0) + extras_total
     if "deposit_amount" in data:
         b.deposit_amount = float(data["deposit_amount"])
     if "deposit_type" in data:
@@ -1545,11 +1615,14 @@ async def booking_confirm_page(booking_id: int, request: Request, db: Session = 
     if not b:
         raise HTTPException(status_code=404)
     inv_setting = db.query(InvoiceSetting).first()
+    extras = _parse_extras(b.extra_charges)
     return render(request, "booking_confirm_print.html", {
         "booking": b,
         "inv_setting": inv_setting,
         "today": date.today(),
         "current_user": user,
+        "extras": extras,
+        "room_subtotal": (b.room_price or 0) * (b.num_nights or 0),
     })
 
 
@@ -1562,12 +1635,15 @@ async def invoice_page(booking_id: int, request: Request, db: Session = Depends(
     if not b:
         raise HTTPException(status_code=404)
     inv_setting = db.query(InvoiceSetting).first()
+    extras = _parse_extras(b.extra_charges)
     return render(request, "invoice_print.html", {
         "booking": b,
         "inv_setting": inv_setting,
         "invoice_number": f"INV-{b.id:05d}",
         "issue_date": date.today(),
         "current_user": user,
+        "extras": extras,
+        "room_subtotal": (b.room_price or 0) * (b.num_nights or 0),
     })
 
 
