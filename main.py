@@ -610,22 +610,29 @@ async def api_delete_maintenance(mid: int, request: Request, db: Session = Depen
 
 @app.post("/api/rooms/reset-defaults")
 async def api_reset_default_rooms(request: Request, db: Session = Depends(get_db)):
-    """Owner-only: wipe rooms with no booking history and recreate the default 19 rooms."""
+    """Owner-only: wipe rooms (and their cancelled bookings) and recreate the default 19 rooms.
+    Rooms that still have ACTIVE bookings (confirmed/checked_in/checked_out) block the reset."""
     user = get_current_user_from_cookie(request)
     if not user or user.get("role") != "owner":
         raise HTTPException(status_code=403, detail="เฉพาะเจ้าของเท่านั้น")
 
-    # Check for rooms that have bookings — cannot wipe those
-    booked_ids = {b.room_id for b in db.query(Booking).all()}
-    locked = db.query(Room).filter(Room.id.in_(booked_ids)).all() if booked_ids else []
+    # Block reset only if there are ACTIVE bookings (ignore cancelled)
+    active_room_ids = {
+        b.room_id for b in db.query(Booking).filter(Booking.status != "cancelled").all()
+    }
+    locked = db.query(Room).filter(Room.id.in_(active_room_ids)).all() if active_room_ids else []
     if locked:
         names = ", ".join(r.room_number for r in locked)
         raise HTTPException(
             status_code=400,
-            detail=f"ลบไม่ได้: ห้องเหล่านี้มีประวัติการจอง: {names}"
+            detail=f"ลบไม่ได้: ห้องเหล่านี้มีการจองที่ยังไม่ถูกยกเลิก: {names}"
         )
 
-    # Safe to wipe everything (no bookings exist)
+    # Safe to wipe: delete payments + cancelled bookings + maintenances + rooms
+    cancelled_ids = [b.id for b in db.query(Booking).filter(Booking.status == "cancelled").all()]
+    if cancelled_ids:
+        db.query(Payment).filter(Payment.booking_id.in_(cancelled_ids)).delete(synchronize_session=False)
+        db.query(Booking).filter(Booking.id.in_(cancelled_ids)).delete(synchronize_session=False)
     db.query(Maintenance).delete()
     db.query(Room).delete()
     db.commit()
@@ -642,14 +649,23 @@ async def api_delete_room(room_id: int, request: Request, db: Session = Depends(
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="ไม่พบห้องพัก")
-    # Block deletion if room has any bookings (active or historical)
-    booking_count = db.query(Booking).filter(Booking.room_id == room_id).count()
-    if booking_count > 0:
+    # Block deletion only if there are ACTIVE bookings (cancelled is OK to wipe)
+    active_count = db.query(Booking).filter(
+        Booking.room_id == room_id,
+        Booking.status != "cancelled"
+    ).count()
+    if active_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"ห้อง {room.room_number} มีประวัติการจอง {booking_count} รายการ — ลบไม่ได้"
+            detail=f"ห้อง {room.room_number} มีการจองที่ยังไม่ถูกยกเลิก {active_count} รายการ — ลบไม่ได้"
         )
-    # Remove related maintenances first (no booking history exists)
+    # Sweep cancelled bookings + their payments, maintenances, then the room itself
+    cancelled = [b.id for b in db.query(Booking).filter(
+        Booking.room_id == room_id, Booking.status == "cancelled"
+    ).all()]
+    if cancelled:
+        db.query(Payment).filter(Payment.booking_id.in_(cancelled)).delete(synchronize_session=False)
+        db.query(Booking).filter(Booking.id.in_(cancelled)).delete(synchronize_session=False)
     db.query(Maintenance).filter(Maintenance.room_id == room_id).delete()
     db.delete(room)
     db.commit()
