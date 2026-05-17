@@ -464,8 +464,9 @@ async function loadRoomSettingsTable() {
           </select>
         </td>
         <td><input class="form-control form-control-sm" value="${r.description||''}" id="rd_${r.id}"></td>
-        <td>
-          <button class="btn btn-xs btn-primary" onclick="saveRoom(${r.id})"><i class="bi bi-save"></i></button>
+        <td class="d-flex gap-1">
+          <button class="btn btn-xs btn-primary" onclick="saveRoom(${r.id})" title="บันทึก"><i class="bi bi-save"></i></button>
+          <button class="btn btn-xs btn-outline-danger" onclick="deleteRoom(${r.id}, '${r.room_number}')" title="ลบห้อง"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`;
   });
@@ -489,9 +490,29 @@ async function saveRoom(id) {
     showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger');
     return;
   }
-  showToast('บันทึกเรียบร้อย — กำลังรีเฟรชหน้า...');
-  // Reload page so the calendar grid shows updated room info
-  setTimeout(() => location.reload(), 800);
+  // Flash row green briefly to confirm save (no page reload)
+  const row = document.getElementById(`rrow_${id}`);
+  if (row) {
+    row.style.transition = 'background 0.4s';
+    row.style.background = '#d1fae5';
+    setTimeout(() => { row.style.background = ''; }, 800);
+  }
+  showToast('บันทึกห้อง ' + newNumber + ' เรียบร้อย');
+}
+
+async function deleteRoom(id, roomNumber) {
+  if (!confirm(`ลบห้อง ${roomNumber}?\n(ห้องที่มีประวัติการจองจะลบไม่ได้)`)) return;
+  const res = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.detail || 'ลบไม่สำเร็จ', 'danger');
+    return;
+  }
+  // Remove row from table immediately
+  document.getElementById(`rrow_${id}`)?.remove();
+  showToast(data.message || 'ลบเรียบร้อย');
+  // Calendar grid is server-rendered → schedule reload after a short delay
+  setTimeout(() => location.reload(), 1200);
 }
 
 async function addNewRoom() {
@@ -499,9 +520,15 @@ async function addNewRoom() {
   if (!num) return;
   const name = prompt('ชื่อห้อง:') || num;
   const price = prompt('ราคา/คืน:') || '0';
-  await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({room_number:num, name, price_per_night:price})});
+  const res = await fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({room_number:num, name, price_per_night:price})});
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.detail || 'เพิ่มห้องไม่สำเร็จ', 'danger');
+    return;
+  }
+  showToast('เพิ่มห้อง ' + num + ' เรียบร้อย');
   loadRoomSettingsTable();
-  location.reload();
+  setTimeout(() => location.reload(), 1200);
 }
 </script>
 {% endblock %}

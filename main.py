@@ -600,6 +600,26 @@ async def api_delete_maintenance(mid: int, request: Request, db: Session = Depen
     return {"message": "ยกเลิกการปิดห้องเรียบร้อย"}
 
 
+@app.delete("/api/rooms/{room_id}")
+async def api_delete_room(room_id: int, request: Request, db: Session = Depends(get_db)):
+    require_permission(request, "manage_rooms", db)
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="ไม่พบห้องพัก")
+    # Block deletion if room has any bookings (active or historical)
+    booking_count = db.query(Booking).filter(Booking.room_id == room_id).count()
+    if booking_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ห้อง {room.room_number} มีประวัติการจอง {booking_count} รายการ — ลบไม่ได้"
+        )
+    # Remove related maintenances first (no booking history exists)
+    db.query(Maintenance).filter(Maintenance.room_id == room_id).delete()
+    db.delete(room)
+    db.commit()
+    return {"message": f"ลบห้อง {room.room_number} เรียบร้อย"}
+
+
 @app.put("/api/rooms/{room_id}")
 async def api_update_room(room_id: int, request: Request, db: Session = Depends(get_db)):
     require_permission(request, "manage_rooms", db)
