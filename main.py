@@ -107,25 +107,25 @@ seed_role_permissions()
 
 
 def seed_initial_data():
-    """Create default admin user, 19 rooms, and invoice settings on first run."""
-    import sys, traceback
+    """Bootstrap admin + 19 rooms ONLY on a truly fresh database.
+    After the first run, nothing is auto-recreated — deletions stay deleted."""
+    import traceback
     from auth import get_password_hash
     from models import InvoiceSetting
     db = SessionLocal()
     try:
-        print("[seed] starting...", flush=True)
-        # Default owner
-        if not db.query(User).filter(User.username == "admin").first():
-            db.add(User(
-                username="admin",
-                password_hash=get_password_hash("admin1234"),
-                full_name="Owner",
-                role="owner",
-                salary=0,
-                is_active=True,
-            ))
-            print("[seed] admin user added", flush=True)
-        # 19 rooms
+        # Only seed if there are NO users at all (true first-run on fresh DB)
+        if db.query(User).count() > 0:
+            return
+        print("[seed] fresh database — seeding admin + 19 rooms + invoice", flush=True)
+        db.add(User(
+            username="admin",
+            password_hash=get_password_hash("admin1234"),
+            full_name="Owner",
+            role="owner",
+            salary=0,
+            is_active=True,
+        ))
         room_configs = [
             ("101", "Standard A", 800),  ("102", "Standard B", 800),
             ("103", "Standard C", 800),  ("104", "Standard D", 800),
@@ -139,20 +139,17 @@ def seed_initial_data():
             ("304", "Penthouse", 4500),
         ]
         for number, name, price in room_configs:
-            if not db.query(Room).filter(Room.room_number == number).first():
-                db.add(Room(room_number=number, name=name, price_per_night=price))
-        # Default invoice settings
-        if not db.query(InvoiceSetting).first():
-            db.add(InvoiceSetting(
-                company_name="My Hotel",
-                address="123 Sukhumvit Rd, Bangkok 10110",
-                phone="02-000-0000",
-                tax_id="",
-                bank_info="Bank Account",
-                footer_notes="Thank you",
-            ))
+            db.add(Room(room_number=number, name=name, price_per_night=price))
+        db.add(InvoiceSetting(
+            company_name="My Hotel",
+            address="123 Sukhumvit Rd, Bangkok 10110",
+            phone="02-000-0000",
+            tax_id="",
+            bank_info="Bank Account",
+            footer_notes="Thank you",
+        ))
         db.commit()
-        print("[seed] commit OK", flush=True)
+        print("[seed] done", flush=True)
     except Exception as e:
         print(f"[seed] ERROR: {e}", flush=True)
         traceback.print_exc()
