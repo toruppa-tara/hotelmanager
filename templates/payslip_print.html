@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>สลิปเงินเดือน — {{ employee.full_name }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 13px; color: #222; background: #f5f5f5; }
+    .page { width: 148mm; min-height: 210mm; margin: 0 auto; background: #fff; padding: 14mm 14mm; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; border-bottom: 2px solid #be185d; padding-bottom: 12px; }
+    .logo-area img { max-height: 60px; max-width: 120px; }
+    .logo-area .no-logo { font-size: 26px; font-weight: bold; color: #be185d; }
+    .company-info { text-align: right; }
+    .company-info h2 { font-size: 15px; color: #be185d; font-weight: bold; }
+    .company-info p { font-size: 11px; color: #555; margin-top: 2px; }
+    .slip-title { text-align: center; margin: 12px 0 12px; }
+    .slip-title h1 { font-size: 18px; font-weight: bold; color: #be185d; letter-spacing: 2px; }
+    .slip-title .period { font-size: 13px; color: #555; margin-top: 3px; }
+    .emp-box { background: #fdf2f8; border: 1px solid #f9a8d4; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+    .emp-box .label { font-size: 10px; color: #9d174d; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .emp-box .name { font-size: 16px; font-weight: bold; color: #1e293b; }
+    .emp-box .role { font-size: 11px; color: #64748b; margin-top: 2px; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    table.items thead tr { background: #be185d; color: #fff; }
+    table.items thead th { padding: 7px 10px; font-size: 11px; }
+    table.items tbody tr:nth-child(even) { background: #fdf2f8; }
+    table.items tbody td { padding: 7px 10px; font-size: 13px; border-bottom: 1px solid #fce7f3; }
+    table.items .text-right { text-align: right; }
+    .totals-box { background: #f8fafc; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+    .totals-box table { width: 100%; }
+    .totals-box td { padding: 4px 6px; font-size: 13px; }
+    .totals-box .deduct { color: #dc2626; }
+    .totals-box .net-row td { font-weight: bold; font-size: 16px; color: #be185d; border-top: 2px solid #be185d; padding-top: 8px; }
+    .footer { margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px; display: flex; justify-content: space-between; }
+    .sig-area { text-align: center; }
+    .sig-line { border-top: 1px solid #333; width: 130px; margin: 35px auto 4px; }
+    .sig-label { font-size: 11px; color: #666; }
+    .badge-role { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; background: #fce7f3; color: #9d174d; }
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; padding: 12mm 12mm; box-shadow: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<!-- Controls -->
+<div class="no-print" style="background:#be185d;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px">
+  <span style="font-weight:bold;font-size:15px">สลิปเงินเดือน</span>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button onclick="downloadPdf()" id="btnPdf" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.6);padding:6px 16px;border-radius:5px;font-weight:bold;cursor:pointer">⬇ PDF</button>
+    <button onclick="window.print()" style="background:#fff;color:#be185d;border:none;padding:6px 18px;border-radius:5px;font-weight:bold;cursor:pointer">🖨️ พิมพ์</button>
+    <button onclick="window.close()" style="background:transparent;color:#fff;border:1px solid #fff;padding:6px 14px;border-radius:5px;cursor:pointer">✕ ปิด</button>
+  </div>
+</div>
+
+<div class="page" id="slipPage">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      {% if inv_setting and inv_setting.logo_filename %}
+        <img src="/uploads/logos/{{ inv_setting.logo_filename }}" alt="Logo">
+      {% else %}
+        <div class="no-logo">M</div>
+      {% endif %}
+    </div>
+    <div class="company-info">
+      <h2>{{ inv_setting.company_name if inv_setting and inv_setting.company_name else 'โรงแรม' }}</h2>
+      {% if inv_setting and inv_setting.phone %}<p>โทร: {{ inv_setting.phone }}</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div class="slip-title">
+    <h1>สลิปเงินเดือน</h1>
+    <div class="period">ประจำเดือน {{ month_name }} {{ year + 543 }}</div>
+  </div>
+
+  <!-- Employee Info -->
+  <div class="emp-box">
+    <div class="label">ข้อมูลพนักงาน</div>
+    <div class="name">{{ employee.full_name }}</div>
+    <div class="role mt-1">
+      <span class="badge-role">
+        {% if employee.role == 'owner' %}เจ้าของ
+        {% elif employee.role == 'manager' %}ผู้จัดการ
+        {% else %}พนักงาน{% endif %}
+      </span>
+      &nbsp;|&nbsp;
+      {% if employee.wage_type == 'daily' %}
+        รายวัน {{ "{:,.0f}".format(employee.daily_rate or 0) }} บาท/วัน
+      {% else %}
+        รายเดือน {{ "{:,.0f}".format(employee.salary or 0) }} บาท/เดือน
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Earnings Table -->
+  <table class="items">
+    <thead>
+      <tr>
+        <th>รายการ</th>
+        <th class="text-right" style="width:120px">จำนวนเงิน</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if summary.wage_type == 'daily' %}
+      <tr>
+        <td>ค่าจ้างรายวัน ({{ summary.working_days }} วัน × {{ "{:,.0f}".format(employee.daily_rate or 0) }} บาท)</td>
+        <td class="text-right">{{ "{:,.0f}".format(summary.base_earned) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td>เงินเดือน</td>
+        <td class="text-right">{{ "{:,.0f}".format(summary.base_earned) }}</td>
+      </tr>
+      {% endif %}
+      {% if summary.no_ab_bonus > 0 %}
+      <tr>
+        <td>โบนัสไม่ขาด/ลา</td>
+        <td class="text-right text-success fw-semibold">+{{ "{:,.0f}".format(summary.no_ab_bonus) }}</td>
+      </tr>
+      {% endif %}
+      {% if summary.special_bonus > 0 %}
+      <tr>
+        <td>โบนัสพิเศษ</td>
+        <td class="text-right text-success fw-semibold">+{{ "{:,.0f}".format(summary.special_bonus) }}</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals-box">
+    <table>
+      <tr>
+        <td>รายได้รวม</td>
+        <td class="text-right fw-semibold">฿{{ "{:,.0f}".format(summary.total_earned) }}</td>
+      </tr>
+      {% if summary.absence_count > 0 %}
+      <tr>
+        <td class="text-muted" style="font-size:12px">
+          วันขาด/ลา {{ summary.absence_count }} วัน
+          {% if summary.free_days > 0 %}(ฟรี {{ summary.free_days }} วัน → หัก {{ summary.effective_absences }} วัน){% endif %}
+        </td>
+        <td></td>
+      </tr>
+      {% endif %}
+      {% if summary.total_withdrawals > 0 %}
+      <tr>
+        <td class="deduct">หักเบิกล่วงหน้า</td>
+        <td class="text-right deduct fw-semibold">- ฿{{ "{:,.0f}".format(summary.total_withdrawals) }}</td>
+      </tr>
+      {% endif %}
+      <tr class="net-row">
+        <td>ยอดที่ต้องจ่าย</td>
+        <td class="text-right">฿{{ "{:,.0f}".format(summary.net_payable) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Footer / Signatures -->
+  <div class="footer">
+    <div class="sig-area">
+      <div class="sig-line"></div>
+      <div class="sig-label">ลายเซ็นพนักงาน</div>
+      <div class="sig-label mt-1">({{ employee.full_name }})</div>
+    </div>
+    <div class="sig-area">
+      <div class="sig-line"></div>
+      <div class="sig-label">ผู้จ่ายเงิน / ผู้อนุมัติ</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:16px;font-size:10px;color:#aaa">
+    พิมพ์วันที่: {{ print_date }}
+  </div>
+</div>
+
+<script>
+function downloadPdf() {
+  const btn = document.getElementById('btnPdf');
+  btn.disabled = true; btn.textContent = '⏳ ...';
+  html2pdf().set({
+    margin: 0,
+    filename: 'สลิป_{{ employee.full_name }}_{{ month_name }}{{ year + 543 }}.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
+  }).from(document.getElementById('slipPage')).save().then(() => {
+    btn.disabled = false; btn.textContent = '⬇ PDF';
+  });
+}
+</script>
+</body>
+</html>

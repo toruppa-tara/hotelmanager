@@ -1466,6 +1466,89 @@ async def api_update_user_wage(user_id: int, request: Request, db: Session = Dep
 
 
 # ─────────────────────────────────────────────
+#  Payslip Print
+# ─────────────────────────────────────────────
+
+@app.get("/payslip/{user_id}", response_class=HTMLResponse)
+async def payslip_print(user_id: int, request: Request,
+                        year: int = None, month: int = None,
+                        db: Session = Depends(get_db)):
+    require_permission(request, "manage_payroll", db)
+    import calendar as cal_mod
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+
+    employee = db.query(User).filter(User.id == user_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+
+    cfg = db.query(PayrollSettings).first()
+    free_days       = cfg.free_absence_days if cfg else 4
+    no_ab_bonus_amt = cfg.no_absence_bonus  if cfg else 1000
+    days_in_month   = cal_mod.monthrange(y, m)[1]
+
+    total_withdraw = db.query(func.sum(Withdrawal.amount)).filter(
+        Withdrawal.user_id == user_id,
+        extract("year", Withdrawal.date) == y,
+        extract("month", Withdrawal.date) == m
+    ).scalar() or 0
+
+    absence_count = db.query(func.count(Absence.id)).filter(
+        Absence.user_id == user_id,
+        extract("year", Absence.absence_date) == y,
+        extract("month", Absence.absence_date) == m
+    ).scalar() or 0
+
+    wage_type  = getattr(employee, "wage_type", "monthly") or "monthly"
+    daily_rate = getattr(employee, "daily_rate", 0) or 0
+    effective_absences = max(0, absence_count - free_days)
+    if wage_type == "daily":
+        working_days = max(0, days_in_month - effective_absences)
+        base_earned  = round(daily_rate * working_days, 2)
+    else:
+        working_days = None
+        base_earned  = employee.salary or 0
+
+    no_ab_bonus = no_ab_bonus_amt if absence_count == 0 else 0
+    pb = db.query(PayrollBonus).filter(
+        PayrollBonus.user_id == user_id,
+        PayrollBonus.year == y,
+        PayrollBonus.month == m,
+    ).first()
+    special_bonus = pb.special_bonus if pb else 0
+    total_earned  = round(base_earned + no_ab_bonus + special_bonus, 2)
+
+    summary = {
+        "wage_type": wage_type,
+        "base_earned": base_earned,
+        "working_days": working_days,
+        "absence_count": absence_count,
+        "free_days": free_days,
+        "effective_absences": effective_absences,
+        "no_ab_bonus": no_ab_bonus,
+        "special_bonus": special_bonus,
+        "total_earned": total_earned,
+        "total_withdrawals": round(total_withdraw, 2),
+        "net_payable": round(total_earned - total_withdraw, 2),
+    }
+
+    THAI_MONTHS = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+                   "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"]
+    inv_setting = db.query(InvoiceSetting).first()
+
+    return render(request, "payslip_print.html", {
+        "employee": employee,
+        "summary": summary,
+        "year": y,
+        "month": m,
+        "month_name": THAI_MONTHS[m],
+        "inv_setting": inv_setting,
+        "print_date": today.strftime("%d/%m/") + str(today.year + 543),
+    })
+
+
+# ─────────────────────────────────────────────
 #  Users (Owner only)
 # ─────────────────────────────────────────────
 

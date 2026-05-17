@@ -530,6 +530,7 @@ function renderSummary(data) {
       <td>
         <button class="btn btn-xs btn-outline-info" onclick="loadWithdrawals(${s.user_id})" title="ดูรายการเบิก"><i class="bi bi-list-ul"></i></button>
         ${IS_OWNER ? `<button class="btn btn-xs btn-outline-warning ms-1" onclick="loadAbsences(${s.user_id})" title="ดูวันหยุด"><i class="bi bi-calendar-x"></i></button>` : ''}
+        <a href="/payslip/${s.user_id}?year=${yr}&month=${mo}" target="_blank" class="btn btn-xs btn-outline-danger ms-1" title="สลิปเงินเดือน"><i class="bi bi-receipt"></i></a>
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="13" class="text-center text-muted py-4">ไม่มีข้อมูลพนักงาน</td></tr>';
