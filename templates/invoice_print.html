@@ -94,11 +94,14 @@
       <h6>ข้อมูลลูกค้า</h6>
       {% if booking.member %}
         {% if booking.member.is_corporate %}
-          {# ── นิติบุคคล: บริษัท / เลขผู้เสียภาษี / ที่อยู่ / เบอร์โทร ── #}
+          {# ── นิติบุคคล: บริษัท / เลขผู้เสียภาษี / ที่อยู่ / เบอร์โทร / ผู้เข้าพัก ── #}
           <p>{{ booking.member.company_name or booking.member.name }}</p>
           {% if booking.member.id_card %}<p class="sub">เลขผู้เสียภาษี: {{ booking.member.id_card }}</p>{% endif %}
           {% if booking.member.address %}<p class="sub">{{ booking.member.address }}</p>{% endif %}
           {% if booking.member.phone %}<p class="sub">โทร: {{ booking.member.phone }}</p>{% endif %}
+          {% if booking.member.name and booking.member.name != booking.member.company_name %}
+            <p class="sub">ผู้เข้าพัก: {{ booking.member.name }}</p>
+          {% endif %}
         {% else %}
           {# ── บุคคลธรรมดา: ชื่อ / ที่อยู่ / เบอร์โทร ── #}
           <p>{{ booking.member.name }}</p>

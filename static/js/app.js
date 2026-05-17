@@ -611,7 +611,7 @@ function onNewMemberTypeChange() {
 
 function openAddMemberInline() {
   // Clear all fields
-  ['nm_name','nm_phone','nm_id_card','nm_id_card_corp','nm_company','nm_address'].forEach(id => {
+  ['nm_name','nm_phone','nm_id_card','nm_id_card_corp','nm_company','nm_contact_name','nm_address'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -628,13 +628,17 @@ async function saveNewMember() {
   const isCorp = document.getElementById('nm_is_corporate').value === 'true';
   const name = document.getElementById('nm_name').value.trim();
   const company = document.getElementById('nm_company').value.trim();
+  const contactName = document.getElementById('nm_contact_name').value.trim();
 
   // Validation per type
   if (isCorp && !company) { showToast('กรุณากรอกชื่อบริษัท', 'danger'); return; }
   if (!isCorp && !name)   { showToast('กรุณากรอกชื่อ-นามสกุล', 'danger'); return; }
 
+  // For corporate: member.name = contact (occupant) name, falls back to company if not provided
+  const memberName = isCorp ? (contactName || company) : name;
+
   const body = {
-    name: isCorp ? (name || company) : name,    // member.name is required by API
+    name: memberName,
     phone: document.getElementById('nm_phone').value,
     email: '',
     id_card: isCorp
