@@ -92,9 +92,20 @@
       <div class="modal-body" style="background:#f1f5f9;">
         <input type="hidden" id="mem_id">
         <div class="row g-3">
-          <div class="col-md-8">
+          <!-- บุคคลธรรมดา: ชื่อเดียว -->
+          <div class="col-md-8" id="memNameRow">
             <label class="form-label fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="mem_name">
+          </div>
+          <!-- นิติบุคคล: หลายชื่อ (hidden by default) -->
+          <div class="col-md-8" id="memOccupantsRow" style="display:none">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label fw-semibold mb-0">ชื่อผู้เข้าพัก <span class="text-danger">*</span></label>
+              <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" onclick="addMemOccupantRow()">
+                <i class="bi bi-plus"></i> เพิ่มชื่อ
+              </button>
+            </div>
+            <div id="memOccupantsList"></div>
           </div>
           <div class="col-md-4">
             <label class="form-label fw-semibold">ประเภท</label>
@@ -170,32 +181,70 @@ async function openMemberForm(id = null) {
   document.getElementById('mem_id').value = id || '';
   const title = id ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิกใหม่';
   document.getElementById('memberModalTitle').innerHTML = `<i class="bi bi-person me-2"></i>${title}`;
+  clearMemOccupants();
   if (id) {
     const res = await fetch(`/api/members/${id}`);
     const m = await res.json();
-    document.getElementById('mem_name').value = m.name;
+    document.getElementById('mem_is_corporate').value = m.is_corporate ? 'true' : 'false';
+    if (m.is_corporate) {
+      // Split stored names back into rows
+      const names = m.name ? m.name.split(', ').filter(n => n.trim()) : [];
+      names.forEach(n => addMemOccupantRow(n));
+      if (!names.length) addMemOccupantRow();
+    } else {
+      document.getElementById('mem_name').value = m.name;
+    }
     document.getElementById('mem_phone').value = m.phone;
     document.getElementById('mem_email').value = m.email;
     document.getElementById('mem_id_card').value = m.id_card;
     document.getElementById('mem_company').value = m.company_name;
     document.getElementById('mem_address').value = m.address;
     document.getElementById('mem_notes').value = m.notes;
-    document.getElementById('mem_is_corporate').value = m.is_corporate ? 'true' : 'false';
   } else {
     ['mem_name','mem_phone','mem_email','mem_id_card','mem_company','mem_address','mem_notes'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('mem_is_corporate').value = 'false';
+    addMemOccupantRow();
   }
   updateIdCardLabel();
   new bootstrap.Modal(document.getElementById('memberModal')).show();
+}
+
+function addMemOccupantRow(value = '') {
+  const container = document.getElementById('memOccupantsList');
+  if (!container) return;
+  const idx = Date.now() + Math.random();
+  const safeId = 'mocc_' + Math.floor(idx);
+  container.insertAdjacentHTML('beforeend', `
+    <div class="input-group input-group-sm mb-1" id="${safeId}">
+      <input type="text" class="form-control mocc-name" placeholder="ชื่อ-นามสกุล" value="${value}">
+      <button class="btn btn-outline-danger" type="button" onclick="document.getElementById('${safeId}').remove()">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>`);
+}
+
+function getMemOccupantNames() {
+  return [...document.querySelectorAll('#memOccupantsList .mocc-name')]
+    .map(el => el.value.trim()).filter(v => v);
+}
+
+function clearMemOccupants() {
+  const c = document.getElementById('memOccupantsList');
+  if (c) c.innerHTML = '';
 }
 
 function updateIdCardLabel() {
   const isCorp = document.getElementById('mem_is_corporate').value === 'true';
   const label = document.getElementById('mem_id_card_label');
   const input = document.getElementById('mem_id_card');
+  // Toggle name field vs occupant list
+  document.getElementById('memNameRow').style.display = isCorp ? 'none' : '';
+  document.getElementById('memOccupantsRow').style.display = isCorp ? '' : 'none';
   if (isCorp) {
     label.innerHTML = 'เลขผู้เสียภาษี <span class="text-muted small">(นิติบุคคล)</span>';
     input.placeholder = 'เลขผู้เสียภาษี 13 หลัก';
+    // Ensure at least one row when switching to corporate
+    if (!document.querySelector('#memOccupantsList .mocc-name')) addMemOccupantRow();
   } else {
     label.textContent = 'เลขบัตรประชาชน / Passport';
     input.placeholder = 'เลข 13 หลัก';
@@ -204,17 +253,26 @@ function updateIdCardLabel() {
 
 async function saveMember() {
   const id = document.getElementById('mem_id').value;
+  const isCorp = document.getElementById('mem_is_corporate').value === 'true';
+  let name;
+  if (isCorp) {
+    const occupants = getMemOccupantNames();
+    if (!occupants.length) { showToast('กรุณากรอกชื่อผู้เข้าพักอย่างน้อย 1 คน', 'danger'); return; }
+    name = occupants.join(', ');
+  } else {
+    name = document.getElementById('mem_name').value.trim();
+    if (!name) { showToast('กรุณากรอกชื่อ', 'danger'); return; }
+  }
   const body = {
-    name: document.getElementById('mem_name').value,
+    name,
     phone: document.getElementById('mem_phone').value,
     email: document.getElementById('mem_email').value,
     id_card: document.getElementById('mem_id_card').value,
     company_name: document.getElementById('mem_company').value,
     address: document.getElementById('mem_address').value,
     notes: document.getElementById('mem_notes').value,
-    is_corporate: document.getElementById('mem_is_corporate').value === 'true',
+    is_corporate: isCorp,
   };
-  if (!body.name) { showToast('กรุณากรอกชื่อ', 'danger'); return; }
   const url = id ? `/api/members/${id}` : '/api/members';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});

@@ -100,7 +100,15 @@
           {% if booking.member.address %}<p class="sub">{{ booking.member.address }}</p>{% endif %}
           {% if booking.member.phone %}<p class="sub">โทร: {{ booking.member.phone }}</p>{% endif %}
           {% if booking.member.name and booking.member.name != booking.member.company_name %}
-            <p class="sub">ผู้เข้าพัก: {{ booking.member.name }}</p>
+            {% set occupants = booking.member.name.split(', ') %}
+            {% if occupants|length == 1 %}
+              <p class="sub">ผู้เข้าพัก: {{ booking.member.name }}</p>
+            {% else %}
+              <p class="sub">ผู้เข้าพัก:</p>
+              {% for occ in occupants %}
+                <p class="sub" style="padding-left:8px">• {{ occ }}</p>
+              {% endfor %}
+            {% endif %}
           {% endif %}
         {% else %}
           {# ── บุคคลธรรมดา: ชื่อ / ที่อยู่ / เบอร์โทร ── #}

@@ -609,12 +609,37 @@ function onNewMemberTypeChange() {
   document.querySelectorAll('.nm-corp-field').forEach(el => el.style.display = isCorp ? '' : 'none');
 }
 
+function addOccupantRow(value = '') {
+  const container = document.getElementById('occupantsList');
+  if (!container) return;
+  const idx = Date.now();
+  container.insertAdjacentHTML('beforeend', `
+    <div class="input-group input-group-sm mb-1" id="occ_${idx}">
+      <input type="text" class="form-control occ-name" placeholder="ชื่อ-นามสกุล" value="${value}">
+      <button class="btn btn-outline-danger" type="button" onclick="document.getElementById('occ_${idx}').remove()">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>`);
+}
+
+function getOccupantNames() {
+  return [...document.querySelectorAll('#occupantsList .occ-name')]
+    .map(el => el.value.trim()).filter(v => v);
+}
+
+function clearOccupants() {
+  const c = document.getElementById('occupantsList');
+  if (c) c.innerHTML = '';
+}
+
 function openAddMemberInline() {
   // Clear all fields
-  ['nm_name','nm_phone','nm_id_card','nm_id_card_corp','nm_company','nm_contact_name','nm_address'].forEach(id => {
+  ['nm_name','nm_phone','nm_id_card','nm_id_card_corp','nm_company','nm_address'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  clearOccupants();
+  addOccupantRow(); // start with one empty row
   // Pre-fill name from the booking guest_name field if any
   const guest = document.getElementById('bm_guest_name')?.value.trim();
   if (guest) document.getElementById('nm_name').value = guest;
@@ -628,14 +653,16 @@ async function saveNewMember() {
   const isCorp = document.getElementById('nm_is_corporate').value === 'true';
   const name = document.getElementById('nm_name').value.trim();
   const company = document.getElementById('nm_company').value.trim();
-  const contactName = document.getElementById('nm_contact_name').value.trim();
+  const occupants = getOccupantNames(); // array of names
 
   // Validation per type
   if (isCorp && !company) { showToast('กรุณากรอกชื่อบริษัท', 'danger'); return; }
   if (!isCorp && !name)   { showToast('กรุณากรอกชื่อ-นามสกุล', 'danger'); return; }
 
-  // For corporate: member.name = contact (occupant) name, falls back to company if not provided
-  const memberName = isCorp ? (contactName || company) : name;
+  // For corporate: join all occupant names with ", " — fallback to company name if none given
+  const memberName = isCorp
+    ? (occupants.length > 0 ? occupants.join(', ') : company)
+    : name;
 
   const body = {
     name: memberName,
