@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/uploads/logos
+RUN mkdir -p /app/uploads/logos /app/uploads/qr
 
 EXPOSE 8080
 

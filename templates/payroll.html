@@ -450,19 +450,23 @@ async function staffLoadAll() {
   renderAbsences(await abRes.json());
 }
 
+let _paymentStatus = {}; // { user_id: { paid, amount, paid_at } }
+
 async function loadPayroll() {
   const month = document.getElementById('pay_month').value;
   const year  = parseInt(document.getElementById('pay_year').value) - 543;
   _currentYear  = year;
   _currentMonth = parseInt(month);
-  const [sumRes, wdRes, abRes] = await Promise.all([
+  const [sumRes, wdRes, abRes, payRes] = await Promise.all([
     fetch(`/api/payroll/summary?year=${year}&month=${month}`),
     fetch(`/api/payroll/withdrawals?year=${year}&month=${month}`),
     fetch(`/api/payroll/absences?year=${year}&month=${month}`),
+    fetch(`/api/payroll/payments?year=${year}&month=${month}`),
   ]);
   const summary    = await sumRes.json();
   const withdrawals = await wdRes.json();
   const absences   = await abRes.json();
+  _paymentStatus   = await payRes.json();
 
   renderSummary(summary);
   renderWithdrawals(withdrawals);
@@ -516,8 +520,16 @@ function renderSummary(data) {
       </div>
     </td>`;
 
+    const paid = _paymentStatus[s.user_id];
+    const paidBadge = paid
+      ? `<span class="badge bg-success ms-1" style="font-size:0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>จ่ายแล้ว</span>`
+      : '';
+    const payBtn = paid
+      ? `<button class="btn btn-xs btn-success ms-1" onclick="openPayModal(${s.user_id},'${s.full_name}',${s.net_payable})" title="จ่ายแล้ว"><i class="bi bi-check-circle-fill"></i></button>`
+      : `<button class="btn btn-xs btn-outline-success ms-1" onclick="openPayModal(${s.user_id},'${s.full_name}',${s.net_payable})" title="จ่ายเงิน"><i class="bi bi-cash-coin"></i></button>`;
+
     return `<tr>
-      <td class="fw-semibold">${s.full_name} <span class="badge bg-secondary" style="font-size:0.65rem;">${roleMap[s.role]||s.role}</span></td>
+      <td class="fw-semibold">${s.full_name} <span class="badge bg-secondary" style="font-size:0.65rem;">${roleMap[s.role]||s.role}</span>${paidBadge}</td>
       <td>${isDaily ? '<span class="badge bg-info text-dark">รายวัน</span>' : '<span class="badge bg-primary">รายเดือน</span>'}</td>
       <td class="text-end">${rateCell}</td>
       ${abCell}
@@ -528,7 +540,8 @@ function renderSummary(data) {
       <td class="text-end text-danger">฿${Number(s.total_withdrawals).toLocaleString()}</td>
       <td class="text-end fw-bold ${s.net_payable>=0?'text-primary':'text-danger'}">฿${Number(s.net_payable).toLocaleString()}</td>
       <td>
-        <button class="btn btn-xs btn-outline-info" onclick="loadWithdrawals(${s.user_id})" title="ดูรายการเบิก"><i class="bi bi-list-ul"></i></button>
+        ${payBtn}
+        <button class="btn btn-xs btn-outline-info ms-1" onclick="loadWithdrawals(${s.user_id})" title="ดูรายการเบิก"><i class="bi bi-list-ul"></i></button>
         ${IS_OWNER ? `<button class="btn btn-xs btn-outline-warning ms-1" onclick="loadAbsences(${s.user_id})" title="ดูวันหยุด"><i class="bi bi-calendar-x"></i></button>` : ''}
         <a href="/payslip/${s.user_id}?year=${yr}&month=${mo}" target="_blank" class="btn btn-xs btn-outline-danger ms-1" title="สลิปเงินเดือน"><i class="bi bi-receipt"></i></a>
       </td>
@@ -859,5 +872,106 @@ async function saveWage(uid) {
   const data = await res.json();
   res.ok ? showToast(data.message) : showToast(data.detail||'บันทึกไม่สำเร็จ','danger');
 }
+
+// ── Payment Modal ─────────────────────────────
+let _payUserId = null, _payAmount = 0;
+
+async function openPayModal(userId, fullName, netPayable) {
+  _payUserId = userId;
+  _payAmount = netPayable;
+  const paid = _paymentStatus[userId];
+
+  // Load user bank info
+  const res = await fetch(`/api/users/${userId}`);
+  const u   = await res.json();
+
+  document.getElementById('pm_name').textContent    = fullName;
+  document.getElementById('pm_amount').textContent  = '฿' + Number(netPayable).toLocaleString();
+  document.getElementById('pm_bank_number').textContent = u.bank_account_number || '—';
+  document.getElementById('pm_bank_name').textContent   = u.bank_account_name   || '—';
+
+  const qrEl = document.getElementById('pm_qr');
+  qrEl.innerHTML = u.bank_qr_filename
+    ? `<img src="/uploads/qr/${u.bank_qr_filename}" style="max-height:180px;border-radius:8px;border:1px solid #e5e7eb;">`
+    : '<span class="text-muted small">ไม่มี QR Code</span>';
+
+  const btnPay   = document.getElementById('pm_btn_pay');
+  const btnUnpay = document.getElementById('pm_btn_unpay');
+  const paidInfo = document.getElementById('pm_paid_info');
+  if (paid) {
+    btnPay.style.display   = 'none';
+    btnUnpay.style.display = '';
+    paidInfo.innerHTML = `<span class="badge bg-success fs-6"><i class="bi bi-check-circle-fill me-1"></i>จ่ายแล้ว ${paid.paid_at}</span>`;
+  } else {
+    btnPay.style.display   = '';
+    btnUnpay.style.display = 'none';
+    paidInfo.innerHTML     = '';
+  }
+
+  new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+
+async function markPaid() {
+  const res = await fetch('/api/payroll/payments', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: _payUserId, year: _currentYear, month: _currentMonth, amount: _payAmount })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    showToast('บันทึกการจ่ายเงินเรียบร้อย');
+    bootstrap.Modal.getInstance(document.getElementById('payModal')).hide();
+    loadPayroll();
+  } else { showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger'); }
+}
+
+async function unmarkPaid() {
+  const res = await fetch(`/api/payroll/payments/${_payUserId}?year=${_currentYear}&month=${_currentMonth}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (res.ok) {
+    showToast('ยกเลิกสถานะจ่ายแล้ว');
+    bootstrap.Modal.getInstance(document.getElementById('payModal')).hide();
+    loadPayroll();
+  } else { showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger'); }
+}
 </script>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="payModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;">
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-cash-coin me-2"></i>จ่ายเงินเดือน</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-3">
+          <div class="fw-bold fs-5" id="pm_name"></div>
+          <div class="display-6 fw-bold text-success mt-1" id="pm_amount"></div>
+        </div>
+        <div class="p-3 rounded mb-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+          <div class="row g-2 mb-2">
+            <div class="col-5 text-muted small">เลขที่บัญชี</div>
+            <div class="col-7 fw-semibold" id="pm_bank_number"></div>
+          </div>
+          <div class="row g-2">
+            <div class="col-5 text-muted small">ชื่อบัญชี</div>
+            <div class="col-7 fw-semibold" id="pm_bank_name"></div>
+          </div>
+        </div>
+        <div class="text-center mb-3" id="pm_qr"></div>
+        <div class="text-center" id="pm_paid_info"></div>
+      </div>
+      <div class="modal-footer py-2 gap-2">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+        <button class="btn btn-danger btn-sm" id="pm_btn_unpay" onclick="unmarkPaid()" style="display:none">
+          <i class="bi bi-x-circle me-1"></i>ยกเลิกสถานะจ่ายแล้ว
+        </button>
+        <button class="btn btn-success fw-semibold" id="pm_btn_pay" onclick="markPaid()">
+          <i class="bi bi-check-circle me-1"></i>จ่ายแล้ว
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

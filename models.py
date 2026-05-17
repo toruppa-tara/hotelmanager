@@ -16,6 +16,9 @@ class User(Base):
     wage_type = Column(String(10), default="monthly")  # monthly | daily
     daily_rate = Column(Float, default=0)
     is_active = Column(Boolean, default=True)
+    bank_account_number = Column(String(50), default="")
+    bank_account_name = Column(String(100), default="")
+    bank_qr_filename = Column(String(200), default="")
     created_at = Column(DateTime, default=datetime.now)
 
     bookings_as_staff = relationship("Booking", foreign_keys="Booking.staff_id", back_populates="staff")
@@ -196,6 +199,19 @@ class PayrollBonus(Base):
     special_bonus = Column(Float, default=0)
     notes = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.now)
+
+
+class PayrollPayment(Base):
+    __tablename__ = "payroll_payments"
+    __table_args__ = (UniqueConstraint('user_id', 'year', 'month', name='uq_payroll_payment'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+    amount = Column(Float, default=0)
+    paid_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    paid_at = Column(DateTime, default=datetime.now)
 
 
 class Invoice(Base):

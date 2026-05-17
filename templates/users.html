@@ -191,6 +191,24 @@
             <label class="form-check-label" for="u_is_active">เปิดใช้งานบัญชี</label>
           </div>
         </div>
+        <hr class="my-3">
+        <p class="fw-semibold small mb-2"><i class="bi bi-bank me-1 text-success"></i>ข้อมูลบัญชีธนาคาร</p>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small">เลขที่บัญชี</label>
+            <input type="text" class="form-control form-control-sm" id="u_bank_number" placeholder="xxx-x-xxxxx-x">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">ชื่อบัญชี</label>
+            <input type="text" class="form-control form-control-sm" id="u_bank_name" placeholder="ชื่อ-นามสกุล">
+          </div>
+          <div class="col-12" id="u_qr_section" style="display:none">
+            <label class="form-label small">QR Code พร้อมเพย์ / พร้อมโอน</label>
+            <div id="u_qr_preview" class="mb-2"></div>
+            <input type="file" class="form-control form-control-sm" id="u_qr_file" accept="image/*">
+            <div class="text-muted small mt-1">อัปโหลดรูป QR Code (PNG/JPG)</div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
@@ -226,7 +244,7 @@ document.querySelectorAll('.perm-check').forEach(cb => {
   });
 });
 
-function openUserForm(id=null, username='', fullname='', role='staff', salary=0, isActive=true) {
+async function openUserForm(id=null, username='', fullname='', role='staff', salary=0, isActive=true) {
   document.getElementById('u_id').value = id || '';
   document.getElementById('u_username').value = username;
   document.getElementById('u_username').disabled = !!id;
@@ -237,18 +255,36 @@ function openUserForm(id=null, username='', fullname='', role='staff', salary=0,
   document.getElementById('u_is_active').checked = isActive;
   document.getElementById('passHint').textContent = id ? '(ปล่อยว่างถ้าไม่ต้องการเปลี่ยน)' : '';
   document.getElementById('userModalTitle').innerHTML = `<i class="bi bi-person me-2"></i>${id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}`;
+  document.getElementById('u_bank_number').value = '';
+  document.getElementById('u_bank_name').value = '';
+  document.getElementById('u_qr_preview').innerHTML = '';
+  document.getElementById('u_qr_file').value = '';
+  document.getElementById('u_qr_section').style.display = id ? '' : 'none';
+
+  if (id) {
+    const res = await fetch(`/api/users/${id}`);
+    const u = await res.json();
+    document.getElementById('u_bank_number').value = u.bank_account_number || '';
+    document.getElementById('u_bank_name').value   = u.bank_account_name   || '';
+    if (u.bank_qr_filename) {
+      document.getElementById('u_qr_preview').innerHTML =
+        `<img src="/uploads/qr/${u.bank_qr_filename}" style="max-height:120px;border-radius:8px;border:1px solid #e5e7eb;">`;
+    }
+  }
   new bootstrap.Modal(document.getElementById('userModal')).show();
 }
 
 async function saveUser() {
   const id = document.getElementById('u_id').value;
   const body = {
-    username: document.getElementById('u_username').value,
-    full_name: document.getElementById('u_fullname').value,
-    role: document.getElementById('u_role').value,
-    salary: document.getElementById('u_salary').value || 0,
-    is_active: document.getElementById('u_is_active').checked,
-    password: document.getElementById('u_password').value,
+    username:           document.getElementById('u_username').value,
+    full_name:          document.getElementById('u_fullname').value,
+    role:               document.getElementById('u_role').value,
+    salary:             document.getElementById('u_salary').value || 0,
+    is_active:          document.getElementById('u_is_active').checked,
+    password:           document.getElementById('u_password').value,
+    bank_account_number: document.getElementById('u_bank_number').value,
+    bank_account_name:   document.getElementById('u_bank_name').value,
   };
   if (!body.full_name) { showToast('กรุณากรอกชื่อ', 'danger'); return; }
   if (!id && !body.password) { showToast('กรุณากรอกรหัสผ่าน', 'danger'); return; }
@@ -257,12 +293,19 @@ async function saveUser() {
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   const data = await res.json();
-  if (res.ok) {
-    showToast(data.message);
-    setTimeout(() => location.reload(), 800);
-  } else {
-    showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger');
+  if (!res.ok) { showToast(data.detail || 'เกิดข้อผิดพลาด', 'danger'); return; }
+
+  // Upload QR if selected
+  const qrFile = document.getElementById('u_qr_file').files[0];
+  const userId = id || data.id;
+  if (qrFile && userId) {
+    const fd = new FormData();
+    fd.append('file', qrFile);
+    await fetch(`/api/users/${userId}/qr`, { method: 'POST', body: fd });
   }
+
+  showToast(data.message);
+  setTimeout(() => location.reload(), 800);
 }
 </script>
 {% endblock %}

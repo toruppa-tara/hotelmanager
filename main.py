@@ -14,7 +14,7 @@ from database import engine, get_db, SessionLocal
 import models
 from models import (User, Room, Member, Booking, Payment, Expense,
                     Withdrawal, InvoiceSetting, Invoice, Maintenance, RolePermission, Absence,
-                    PayrollSettings, PayrollBonus)
+                    PayrollSettings, PayrollBonus, PayrollPayment)
 
 
 # ─── Permissions ────────────────────────────────────────────────────
@@ -196,8 +196,11 @@ def migrate_db():
                 pass
         # users table
         for col, ddl in [
-            ("wage_type",  "VARCHAR(10) DEFAULT 'monthly'"),
-            ("daily_rate", "REAL DEFAULT 0"),
+            ("wage_type",           "VARCHAR(10) DEFAULT 'monthly'"),
+            ("daily_rate",          "REAL DEFAULT 0"),
+            ("bank_account_number", "VARCHAR(50) DEFAULT ''"),
+            ("bank_account_name",   "VARCHAR(100) DEFAULT ''"),
+            ("bank_qr_filename",    "VARCHAR(200) DEFAULT ''"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
@@ -235,6 +238,20 @@ def migrate_db():
                 special_bonus REAL DEFAULT 0,
                 notes TEXT DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.commit()
+        # payroll_payments table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS payroll_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                amount REAL DEFAULT 0,
+                paid_by_id INTEGER REFERENCES users(id),
+                paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, year, month)
             )
         """))
         conn.commit()
@@ -1592,10 +1609,24 @@ async def api_create_user(request: Request, db: Session = Depends(get_db)):
     return {"message": "สร้างผู้ใช้เรียบร้อย"}
 
 
+@app.get("/api/users/{user_id}")
+async def api_get_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_permission(request, "manage_users", db)
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404)
+    return {
+        "id": u.id, "username": u.username, "full_name": u.full_name,
+        "role": u.role, "salary": u.salary, "is_active": u.is_active,
+        "bank_account_number": u.bank_account_number or "",
+        "bank_account_name": u.bank_account_name or "",
+        "bank_qr_filename": u.bank_qr_filename or "",
+    }
+
+
 @app.put("/api/users/{user_id}")
 async def api_update_user(user_id: int, request: Request, db: Session = Depends(get_db)):
     require_permission(request, "manage_users", db)
-    user = get_current_user_from_cookie(request)
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404)
@@ -1610,8 +1641,87 @@ async def api_update_user(user_id: int, request: Request, db: Session = Depends(
         u.is_active = bool(data["is_active"])
     if "password" in data and data["password"]:
         u.password_hash = get_password_hash(data["password"])
+    if "bank_account_number" in data:
+        u.bank_account_number = data["bank_account_number"]
+    if "bank_account_name" in data:
+        u.bank_account_name = data["bank_account_name"]
     db.commit()
     return {"message": "อัปเดตผู้ใช้เรียบร้อย"}
+
+
+@app.post("/api/users/{user_id}/qr")
+async def api_upload_user_qr(user_id: int, request: Request,
+                              file: UploadFile = File(...), db: Session = Depends(get_db)):
+    require_permission(request, "manage_users", db)
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404)
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+        raise HTTPException(status_code=400, detail="ไฟล์รูปภาพเท่านั้น")
+    qr_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "qr")
+    os.makedirs(qr_dir, exist_ok=True)
+    filename = f"qr_{user_id}{ext}"
+    with open(os.path.join(qr_dir, filename), "wb") as f:
+        f.write(await file.read())
+    u.bank_qr_filename = filename
+    db.commit()
+    return {"message": "อัปโหลด QR เรียบร้อย", "filename": filename}
+
+
+# Payroll payment (mark paid/unpaid per employee per month)
+@app.get("/api/payroll/payments")
+async def api_get_payroll_payments(request: Request, year: int = None, month: int = None,
+                                    db: Session = Depends(get_db)):
+    require_permission(request, "manage_payroll", db)
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+    payments = db.query(PayrollPayment).filter(
+        PayrollPayment.year == y, PayrollPayment.month == m
+    ).all()
+    return {p.user_id: {"paid": True, "amount": p.amount, "paid_at": p.paid_at.strftime("%d/%m/%Y %H:%M")} for p in payments}
+
+
+@app.post("/api/payroll/payments")
+async def api_mark_paid(request: Request, db: Session = Depends(get_db)):
+    require_permission(request, "manage_payroll", db)
+    caller = get_current_user_from_cookie(request)
+    data = await request.json()
+    user_id = int(data["user_id"])
+    year    = int(data["year"])
+    month   = int(data["month"])
+    amount  = float(data.get("amount", 0))
+    existing = db.query(PayrollPayment).filter(
+        PayrollPayment.user_id == user_id,
+        PayrollPayment.year == year,
+        PayrollPayment.month == month,
+    ).first()
+    if existing:
+        return {"message": "บันทึกแล้ว (ชำระแล้ว)"}
+    pp = PayrollPayment(
+        user_id=user_id, year=year, month=month, amount=amount,
+        paid_by_id=int(caller.get("sub") or caller.get("id") or 0),
+    )
+    db.add(pp); db.commit()
+    return {"message": "บันทึกการจ่ายเงินเรียบร้อย"}
+
+
+@app.delete("/api/payroll/payments/{user_id}")
+async def api_unmark_paid(user_id: int, request: Request,
+                           year: int = None, month: int = None, db: Session = Depends(get_db)):
+    require_permission(request, "manage_payroll", db)
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+    pp = db.query(PayrollPayment).filter(
+        PayrollPayment.user_id == user_id,
+        PayrollPayment.year == y,
+        PayrollPayment.month == m,
+    ).first()
+    if pp:
+        db.delete(pp); db.commit()
+    return {"message": "ยกเลิกสถานะจ่ายแล้ว"}
 
 
 # ─────────────────────────────────────────────
