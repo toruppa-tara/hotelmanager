@@ -168,17 +168,42 @@ except Exception as e:
 def migrate_db():
     from sqlalchemy import text
 
-    # ── PostgreSQL: only add columns introduced after the initial schema
+    # ── PostgreSQL: add all columns introduced after initial schema
     if engine.dialect.name != "sqlite":
         with engine.connect() as conn:
             for table, col, ddl in [
-                ("bookings", "extra_charges", "TEXT DEFAULT '[]'"),
+                ("bookings", "extra_charges",        "TEXT DEFAULT '[]'"),
+                ("bookings", "security_deposit",      "REAL DEFAULT 200"),
+                ("bookings", "security_deposit_type", "VARCHAR(50) DEFAULT 'cash'"),
+                ("bookings", "security_deposit_note", "VARCHAR(200) DEFAULT ''"),
+                ("users",    "wage_type",             "VARCHAR(10) DEFAULT 'monthly'"),
+                ("users",    "daily_rate",            "REAL DEFAULT 0"),
+                ("users",    "bank_account_number",   "VARCHAR(50) DEFAULT ''"),
+                ("users",    "bank_account_name",     "VARCHAR(100) DEFAULT ''"),
+                ("users",    "bank_qr_filename",      "VARCHAR(200) DEFAULT ''"),
             ]:
                 try:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
                     conn.commit()
                 except Exception:
                     pass  # column already exists
+            # payroll_payments table
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS payroll_payments (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        year INTEGER NOT NULL,
+                        month INTEGER NOT NULL,
+                        amount REAL DEFAULT 0,
+                        paid_by_id INTEGER REFERENCES users(id),
+                        paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(user_id, year, month)
+                    )
+                """))
+                conn.commit()
+            except Exception:
+                pass
         return
 
 
