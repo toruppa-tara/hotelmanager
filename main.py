@@ -168,7 +168,7 @@ except Exception as e:
 def migrate_db():
     from sqlalchemy import text
 
-    # ── PostgreSQL: add all columns introduced after initial schema
+    # ── PostgreSQL: add all columns using IF NOT EXISTS (safe to re-run)
     if engine.dialect.name != "sqlite":
         with engine.connect() as conn:
             for table, col, ddl in [
@@ -182,28 +182,21 @@ def migrate_db():
                 ("users",    "bank_account_name",     "VARCHAR(100) DEFAULT ''"),
                 ("users",    "bank_qr_filename",      "VARCHAR(200) DEFAULT ''"),
             ]:
-                try:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
-                    conn.commit()
-                except Exception:
-                    pass  # column already exists
-            # payroll_payments table
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS payroll_payments (
-                        id SERIAL PRIMARY KEY,
-                        user_id INTEGER NOT NULL REFERENCES users(id),
-                        year INTEGER NOT NULL,
-                        month INTEGER NOT NULL,
-                        amount REAL DEFAULT 0,
-                        paid_by_id INTEGER REFERENCES users(id),
-                        paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(user_id, year, month)
-                    )
-                """))
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ddl}"))
                 conn.commit()
-            except Exception:
-                pass
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS payroll_payments (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    year INTEGER NOT NULL,
+                    month INTEGER NOT NULL,
+                    amount REAL DEFAULT 0,
+                    paid_by_id INTEGER REFERENCES users(id),
+                    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, year, month)
+                )
+            """))
+            conn.commit()
         return
 
 
