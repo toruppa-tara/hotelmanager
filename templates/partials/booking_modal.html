@@ -2,61 +2,56 @@
 <div class="modal fade" id="bookingModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title fw-bold" id="bookingModalTitle">
+      <div class="modal-header bg-primary text-white py-2">
+        <h6 class="modal-title fw-bold mb-0" id="bookingModalTitle">
           <i class="bi bi-calendar-plus me-2"></i>รายละเอียดการจอง
-        </h5>
+        </h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-3" style="font-size:0.875rem;">
         <input type="hidden" id="bm_booking_id">
         <input type="hidden" id="bm_room_id">
+        <input type="hidden" id="bm_member_id">
 
-        <div class="row g-3">
+        <div class="row g-2">
           <!-- Room & Dates -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold">ห้องพัก <span class="text-danger">*</span></label>
-            <select class="form-select" id="bm_room_select">
+            <label class="form-label fw-semibold small mb-1">ห้องพัก <span class="text-danger">*</span></label>
+            <select class="form-select form-select-sm" id="bm_room_select">
               <option value="">-- เลือกห้อง --</option>
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label fw-semibold">เช็คอิน <span class="text-danger">*</span></label>
-            <input type="text" class="form-control datepick" id="bm_check_in" placeholder="วัน/เดือน/ปี">
+            <label class="form-label fw-semibold small mb-1">เช็คอิน <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm datepick" id="bm_check_in" placeholder="วัน/เดือน/ปี">
           </div>
           <div class="col-md-3">
-            <label class="form-label fw-semibold">เช็คเอาต์ <span class="text-danger">*</span></label>
-            <input type="text" class="form-control datepick" id="bm_check_out" placeholder="วัน/เดือน/ปี">
+            <label class="form-label fw-semibold small mb-1">เช็คเอาต์ <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm datepick" id="bm_check_out" placeholder="วัน/เดือน/ปี">
           </div>
 
-          <!-- Member Search -->
-          <div class="col-12">
-            <label class="form-label fw-semibold">ลูกค้า/สมาชิก <span class="text-muted fw-normal small">(ต้องระบุอย่างน้อย 1 อย่าง)</span></label>
-            <div class="input-group">
-              <input type="text" class="form-control" id="bm_member_search" placeholder="พิมพ์ชื่อ / เบอร์โทร / เลขบัตร เพื่อค้นหา">
-              <button class="btn btn-outline-secondary" type="button" onclick="searchMember()">
-                <i class="bi bi-search"></i>
-              </button>
-              <button class="btn btn-outline-primary" type="button" onclick="openNewMemberModal()">
-                <i class="bi bi-person-plus"></i>
+          <!-- Guest name (with member search/add) -->
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small mb-1">
+              ชื่อผู้เข้าพัก / สมาชิก <span class="text-danger">*</span>
+            </label>
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control" id="bm_guest_name"
+                     placeholder="ชื่อ-นามสกุล หรือพิมพ์เพื่อค้นหาสมาชิกเดิม"
+                     autocomplete="off" oninput="autoSearchMember()">
+              <button class="btn btn-outline-primary" type="button" onclick="openAddMemberInline()" title="เพิ่มสมาชิกใหม่">
+                <i class="bi bi-plus-lg"></i>
               </button>
             </div>
-            <div id="memberSearchResults" class="list-group mt-1" style="display:none;position:absolute;z-index:1000;width:calc(100% - 30px)"></div>
-            <input type="hidden" id="bm_member_id">
-            <div id="bm_member_info" class="mt-2"></div>
-          </div>
-
-          <!-- Guest name (walk-in) -->
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">ชื่อผู้เข้าพัก <span class="text-danger">*</span> <span class="text-muted fw-normal small">(ถ้าไม่มีสมาชิก)</span></label>
-            <input type="text" class="form-control" id="bm_guest_name" placeholder="ชื่อ-นามสกุล">
-            <div class="invalid-feedback">กรุณาระบุชื่อผู้เข้าพัก หรือเลือกสมาชิก</div>
+            <div id="memberSearchResults" class="list-group mt-1" style="display:none;position:absolute;z-index:1060;width:calc(50% - 30px);max-height:200px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+            <div id="bm_member_info" class="mt-1 small"></div>
+            <div class="invalid-feedback">กรุณาระบุชื่อผู้เข้าพัก</div>
           </div>
 
           <!-- Staff -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold">พนักงานรับเรื่อง</label>
-            <select class="form-select" id="bm_staff_id">
+            <label class="form-label fw-semibold small mb-1">พนักงานรับเรื่อง</label>
+            <select class="form-select form-select-sm" id="bm_staff_id">
               <option value="">-- เลือกพนักงาน --</option>
             </select>
           </div>
@@ -65,43 +60,43 @@
 
           <!-- Pricing -->
           <div class="col-md-4">
-            <label class="form-label fw-semibold">ราคา/คืน (บาท)</label>
-            <input type="number" class="form-control" id="bm_room_price" min="0" step="1" onchange="calcTotal()">
+            <label class="form-label fw-semibold small mb-1">ราคา/คืน</label>
+            <input type="number" class="form-control form-control-sm" id="bm_room_price" min="0" step="1" onchange="calcTotal()">
           </div>
           <div class="col-md-4">
-            <label class="form-label fw-semibold">จำนวนคืน</label>
-            <input type="number" class="form-control" id="bm_num_nights" readonly>
+            <label class="form-label fw-semibold small mb-1">จำนวนคืน</label>
+            <input type="number" class="form-control form-control-sm" id="bm_num_nights" readonly>
           </div>
           <div class="col-md-4">
-            <label class="form-label fw-semibold">ยอดรวม (บาท)</label>
-            <input type="number" class="form-control fw-bold text-primary" id="bm_total_price" readonly>
+            <label class="form-label fw-semibold small mb-1">ยอดรวม</label>
+            <input type="number" class="form-control form-control-sm fw-bold text-primary" id="bm_total_price" readonly>
           </div>
 
           <!-- Deposit -->
           <div class="col-md-4">
-            <label class="form-label fw-semibold">มัดจำ (บาท)</label>
-            <input type="number" class="form-control" id="bm_deposit_amount" min="0" step="1" onchange="calcOutstanding()">
+            <label class="form-label fw-semibold small mb-1">มัดจำ</label>
+            <input type="number" class="form-control form-control-sm" id="bm_deposit_amount" min="0" step="1" onchange="calcOutstanding()">
           </div>
           <div class="col-md-4">
-            <label class="form-label fw-semibold">ประเภทมัดจำ</label>
-            <select class="form-select" id="bm_deposit_type">
+            <label class="form-label fw-semibold small mb-1">ประเภทมัดจำ</label>
+            <select class="form-select form-select-sm" id="bm_deposit_type">
               <option value="">-- เลือก --</option>
               <option value="cash">สด</option>
               <option value="transfer">โอน</option>
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label fw-semibold">วันที่มัดจำ</label>
-            <input type="text" class="form-control datepick" id="bm_deposit_date">
+            <label class="form-label fw-semibold small mb-1">วันที่มัดจำ</label>
+            <input type="text" class="form-control form-control-sm datepick" id="bm_deposit_date">
           </div>
 
           <div class="col-md-6">
-            <label class="form-label fw-semibold">ยอดค้างชำระ (บาท)</label>
-            <input type="number" class="form-control text-danger fw-bold" id="bm_outstanding" readonly>
+            <label class="form-label fw-semibold small mb-1">ยอดค้างชำระ</label>
+            <input type="number" class="form-control form-control-sm text-danger fw-bold" id="bm_outstanding" readonly>
           </div>
           <div class="col-md-6">
-            <label class="form-label fw-semibold">สถานะการจอง</label>
-            <select class="form-select mb-2" id="bm_status">
+            <label class="form-label fw-semibold small mb-1">สถานะการจอง</label>
+            <select class="form-select form-select-sm mb-2" id="bm_status">
               <option value="confirmed">ยืนยันแล้ว</option>
               <option value="checked_in">เช็คอินแล้ว</option>
               <option value="checked_out">เช็คเอาต์แล้ว</option>
@@ -130,7 +125,7 @@
           <!-- Security Deposit -->
           <div class="col-12">
             <hr class="my-1">
-            <label class="form-label fw-semibold"><i class="bi bi-shield-lock me-1 text-warning"></i>เงินประกัน / หลักทรัพย์ค้ำประกัน</label>
+            <label class="form-label fw-semibold small mb-1"><i class="bi bi-shield-lock me-1 text-warning"></i>เงินประกัน / หลักทรัพย์ค้ำประกัน</label>
             <div class="d-flex flex-wrap gap-2 align-items-center">
               <!-- Radio button group -->
               <div class="btn-group btn-group-sm" role="group" id="sec_type_group">
@@ -162,26 +157,26 @@
 
           <!-- Notes -->
           <div class="col-12">
-            <label class="form-label fw-semibold">หมายเหตุ / อื่นๆ</label>
-            <textarea class="form-control" id="bm_notes" rows="2"></textarea>
+            <label class="form-label fw-semibold small mb-1">หมายเหตุ / อื่นๆ</label>
+            <textarea class="form-control form-control-sm" id="bm_notes" rows="2"></textarea>
           </div>
 
           <!-- Extra Charges -->
           <div class="col-12">
             <hr class="my-1">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <label class="form-label fw-semibold mb-0">
+              <label class="form-label fw-semibold small mb-0">
                 <i class="bi bi-receipt me-1 text-warning"></i>รายการค่าใช้จ่ายเพิ่มเติม
-                <span class="text-muted small">(เช่น ที่นอนเสริม, ค่าซักรีด)</span>
+                <span class="text-muted">(เช่น ที่นอนเสริม)</span>
               </label>
-              <button type="button" class="btn btn-sm btn-outline-warning" onclick="addExtraChargeRow()">
+              <button type="button" class="btn btn-sm btn-outline-warning py-0" onclick="addExtraChargeRow()">
                 <i class="bi bi-plus"></i> เพิ่มรายการ
               </button>
             </div>
             <div id="extraChargesBody"></div>
             <div class="text-end mt-1">
               <small class="text-muted">รวมค่าใช้จ่ายเพิ่มเติม:</small>
-              <strong class="text-warning ms-1" id="extraChargesTotal">฿0</strong>
+              <strong class="text-warning ms-1 small" id="extraChargesTotal">฿0</strong>
             </div>
           </div>
 
@@ -292,51 +287,59 @@
 </div>
 
 <!-- New Member Quick Modal -->
-<div class="modal fade" id="newMemberModal" tabindex="-1">
+<div class="modal fade" id="newMemberModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>เพิ่มสมาชิกใหม่</h5>
+      <div class="modal-header bg-success text-white py-2">
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-person-plus me-2"></i>เพิ่มสมาชิกใหม่</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <div class="row g-3">
+      <div class="modal-body p-3" style="background:#f1f5f9;font-size:0.875rem;">
+        <!-- Type selector -->
+        <div class="btn-group w-100 mb-3" role="group">
+          <input type="radio" class="btn-check" name="nm_type_radio" id="nm_type_person" value="false" autocomplete="off" onchange="onNewMemberTypeChange()" checked>
+          <label class="btn btn-outline-primary" for="nm_type_person"><i class="bi bi-person me-1"></i>บุคคลธรรมดา</label>
+          <input type="radio" class="btn-check" name="nm_type_radio" id="nm_type_corp" value="true" autocomplete="off" onchange="onNewMemberTypeChange()">
+          <label class="btn btn-outline-primary" for="nm_type_corp"><i class="bi bi-building me-1"></i>นิติบุคคล</label>
+        </div>
+
+        <input type="hidden" id="nm_is_corporate" value="false">
+
+        <div class="row g-2">
+          <!-- Person fields (default) -->
+          <div class="col-12 nm-person-field">
+            <label class="form-label fw-semibold small mb-1">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="nm_name" placeholder="เช่น สมชาย ใจดี">
+          </div>
+
+          <!-- Corporate fields (hidden by default) -->
+          <div class="col-12 nm-corp-field" style="display:none">
+            <label class="form-label fw-semibold small mb-1">ชื่อบริษัท / องค์กร <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="nm_company" placeholder="เช่น บริษัท เอบีซี จำกัด">
+          </div>
+          <div class="col-12 nm-corp-field" style="display:none">
+            <label class="form-label fw-semibold small mb-1">เลขผู้เสียภาษี</label>
+            <input type="text" class="form-control form-control-sm" id="nm_id_card_corp" placeholder="เลข 13 หลัก">
+          </div>
+
+          <!-- Common fields -->
+          <div class="col-md-6">
+            <label class="form-label small mb-1">เบอร์โทร</label>
+            <input type="text" class="form-control form-control-sm" id="nm_phone">
+          </div>
+          <div class="col-md-6 nm-person-field">
+            <label class="form-label small mb-1">เลขบัตรประชาชน</label>
+            <input type="text" class="form-control form-control-sm" id="nm_id_card" placeholder="เลข 13 หลัก">
+          </div>
           <div class="col-12">
-            <label class="form-label fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="nm_name">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">เบอร์โทร</label>
-            <input type="text" class="form-control" id="nm_phone">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">อีเมล</label>
-            <input type="email" class="form-control" id="nm_email">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">เลขบัตรประชาชน</label>
-            <input type="text" class="form-control" id="nm_id_card">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">ประเภท</label>
-            <select class="form-select" id="nm_is_corporate">
-              <option value="false">บุคคลธรรมดา</option>
-              <option value="true">นิติบุคคล</option>
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label">ชื่อบริษัท</label>
-            <input type="text" class="form-control" id="nm_company">
-          </div>
-          <div class="col-12">
-            <label class="form-label">ที่อยู่</label>
-            <textarea class="form-control" id="nm_address" rows="2"></textarea>
+            <label class="form-label small mb-1">ที่อยู่</label>
+            <textarea class="form-control form-control-sm" id="nm_address" rows="2"></textarea>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-        <button class="btn btn-success" onclick="saveNewMember()">
+      <div class="modal-footer py-2">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-sm btn-success fw-semibold" onclick="saveNewMember()">
           <i class="bi bi-save me-1"></i>บันทึก
         </button>
       </div>

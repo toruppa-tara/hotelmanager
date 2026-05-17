@@ -224,9 +224,10 @@ async function openBookingDetail(bookingId) {
 
   if (b.member_id) {
     document.getElementById('bm_member_id').value = b.member_id;
-    document.getElementById('bm_member_search').value = b.member_name;
+    // If guest_name is empty but the booking has a member, show the member's name in the guest field
+    if (!b.guest_name) document.getElementById('bm_guest_name').value = b.member_name || '';
     document.getElementById('bm_member_info').innerHTML =
-      `<span class="badge bg-success"><i class="bi bi-person-check me-1"></i>${b.member_name}</span>`;
+      `<span class="badge bg-success"><i class="bi bi-person-check me-1"></i>สมาชิก: ${b.member_name}</span>`;
   }
   if (b.staff_id) {
     const staffSel = document.getElementById('bm_staff_id');
@@ -552,78 +553,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ─── Member Search Autocomplete ─────────────────────── */
 
-async function searchMember() {
-  const q = document.getElementById('bm_member_search').value;
-  if (!q) return;
-  const res = await fetch(`/api/members/search?q=${encodeURIComponent(q)}`);
-  const members = await res.json();
+// ─── Auto-search members as user types in the guest name field ────────
+let _memberSearchTimer = null;
+async function autoSearchMember() {
+  // If user starts editing, clear any previously-attached member_id
+  clearMember();
+  const input = document.getElementById('bm_guest_name');
+  const q = input.value.trim();
   const container = document.getElementById('memberSearchResults');
-  if (!members.length) { container.style.display = 'none'; return; }
-  container.innerHTML = members.map(m => `
-    <a href="#" class="list-group-item list-group-item-action py-2" onclick="selectMember(${m.id},'${m.name.replace(/'/g,"\\'")}');return false;">
-      <strong>${m.name}</strong>
-      ${m.phone ? `<span class="text-muted ms-2">${m.phone}</span>` : ''}
-      ${m.is_corporate ? `<span class="badge bg-primary ms-1">นิติบุคคล</span>` : ''}
-      ${m.company_name ? `<span class="text-muted ms-1">(${m.company_name})</span>` : ''}
-      <span class="badge bg-info text-dark ms-1">${m.total_stays} ครั้ง</span>
-    </a>`).join('');
-  container.style.display = '';
+  clearTimeout(_memberSearchTimer);
+  if (q.length < 2) { container.style.display = 'none'; return; }
+  _memberSearchTimer = setTimeout(async () => {
+    const res = await fetch(`/api/members/search?q=${encodeURIComponent(q)}`);
+    const members = await res.json();
+    if (!members.length) { container.style.display = 'none'; return; }
+    container.innerHTML = members.map(m => `
+      <a href="#" class="list-group-item list-group-item-action py-1 px-2 small" onclick="selectMember(${m.id},'${(m.name||'').replace(/'/g,"\\'")}','${(m.company_name||'').replace(/'/g,"\\'")}',${m.is_corporate});return false;">
+        <strong>${m.is_corporate ? (m.company_name || m.name) : m.name}</strong>
+        ${m.phone ? `<span class="text-muted ms-2">${m.phone}</span>` : ''}
+        ${m.is_corporate ? `<span class="badge bg-primary ms-1">นิติบุคคล</span>` : ''}
+        <span class="badge bg-info text-dark ms-1">${m.total_stays} ครั้ง</span>
+      </a>`).join('');
+    container.style.display = '';
+  }, 250);
 }
 
-function selectMember(id, name) {
+function selectMember(id, name, companyName, isCorp) {
+  const displayName = isCorp ? (companyName || name) : name;
   document.getElementById('bm_member_id').value = id;
-  document.getElementById('bm_member_search').value = name;
+  document.getElementById('bm_guest_name').value = displayName;
   document.getElementById('bm_member_info').innerHTML =
-    `<span class="badge bg-success"><i class="bi bi-person-check me-1"></i>${name}</span>
-     <button class="btn btn-xs btn-outline-secondary ms-1" onclick="clearMember()">✕</button>`;
+    `<span class="badge bg-success"><i class="bi bi-person-check me-1"></i>สมาชิก #${id}</span>
+     <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" onclick="clearMember();return false;" title="ยกเลิกการเลือก">✕</button>`;
   document.getElementById('memberSearchResults').style.display = 'none';
 }
 
 function clearMember() {
   document.getElementById('bm_member_id').value = '';
-  document.getElementById('bm_member_search').value = '';
   document.getElementById('bm_member_info').innerHTML = '';
 }
 
-// Allow typing to trigger search on Enter
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('bm_member_search')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); searchMember(); }
-  });
-  // Hide results when clicking outside
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#bm_member_search') && !e.target.closest('#memberSearchResults')) {
-      const el = document.getElementById('memberSearchResults');
-      if (el) el.style.display = 'none';
-    }
-  });
+// Hide search results when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#bm_guest_name') && !e.target.closest('#memberSearchResults')) {
+    const el = document.getElementById('memberSearchResults');
+    if (el) el.style.display = 'none';
+  }
 });
 
-/* ─── New Member Quick Form (from booking modal) ─────── */
-function openNewMemberModal() {
-  ['nm_name','nm_phone','nm_email','nm_id_card','nm_company','nm_address'].forEach(id => {
+/* ─── Inline Add Member (from booking guest field) ─────── */
+function onNewMemberTypeChange() {
+  const isCorp = document.querySelector('input[name="nm_type_radio"]:checked')?.value === 'true';
+  document.getElementById('nm_is_corporate').value = isCorp ? 'true' : 'false';
+  document.querySelectorAll('.nm-person-field').forEach(el => el.style.display = isCorp ? 'none' : '');
+  document.querySelectorAll('.nm-corp-field').forEach(el => el.style.display = isCorp ? '' : 'none');
+}
+
+function openAddMemberInline() {
+  // Clear all fields
+  ['nm_name','nm_phone','nm_id_card','nm_id_card_corp','nm_company','nm_address'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  const el = document.getElementById('nm_is_corporate');
-  if (el) el.value = 'false';
+  // Pre-fill name from the booking guest_name field if any
+  const guest = document.getElementById('bm_guest_name')?.value.trim();
+  if (guest) document.getElementById('nm_name').value = guest;
+  // Default to บุคคลธรรมดา
+  document.getElementById('nm_type_person').checked = true;
+  onNewMemberTypeChange();
   new bootstrap.Modal(document.getElementById('newMemberModal')).show();
 }
 
 async function saveNewMember() {
+  const isCorp = document.getElementById('nm_is_corporate').value === 'true';
+  const name = document.getElementById('nm_name').value.trim();
+  const company = document.getElementById('nm_company').value.trim();
+
+  // Validation per type
+  if (isCorp && !company) { showToast('กรุณากรอกชื่อบริษัท', 'danger'); return; }
+  if (!isCorp && !name)   { showToast('กรุณากรอกชื่อ-นามสกุล', 'danger'); return; }
+
   const body = {
-    name: document.getElementById('nm_name').value,
+    name: isCorp ? (name || company) : name,    // member.name is required by API
     phone: document.getElementById('nm_phone').value,
-    email: document.getElementById('nm_email').value,
-    id_card: document.getElementById('nm_id_card').value,
-    company_name: document.getElementById('nm_company').value,
+    email: '',
+    id_card: isCorp
+      ? document.getElementById('nm_id_card_corp').value
+      : document.getElementById('nm_id_card').value,
+    company_name: company,
     address: document.getElementById('nm_address').value,
-    is_corporate: document.getElementById('nm_is_corporate').value === 'true',
+    is_corporate: isCorp,
   };
-  if (!body.name) { showToast('กรุณากรอกชื่อ', 'danger'); return; }
-  const res = await fetch('/api/members', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+
+  const res = await fetch('/api/members', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
   const data = await res.json();
-  showToast(data.message);
-  selectMember(data.id, body.name);
+  if (!res.ok) { showToast(data.detail || 'เพิ่มสมาชิกไม่สำเร็จ', 'danger'); return; }
+  showToast(data.message || 'เพิ่มสมาชิกเรียบร้อย');
+  selectMember(data.id, body.name, company, isCorp);
   bootstrap.Modal.getInstance(document.getElementById('newMemberModal'))?.hide();
 }
