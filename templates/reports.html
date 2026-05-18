@@ -12,16 +12,20 @@
       <div class="col-md-3">
         <label class="form-label fw-semibold">ช่วงเวลา</label>
         <select class="form-select" id="rpt_period" onchange="toggleDatePicker()">
-          <option value="day">รายวัน (วันนี้)</option>
-          <option value="month" selected>รายเดือน (เดือนนี้)</option>
+          <option value="day" selected>รายวัน (วันนี้)</option>
+          <option value="month">รายเดือน</option>
           <option value="custom">กำหนดเอง</option>
         </select>
       </div>
-      <div class="col-md-3" id="dateFromWrap">
+      <div class="col-md-3" id="monthWrap" style="display:none">
+        <label class="form-label fw-semibold">เดือน</label>
+        <input type="month" class="form-control" id="rpt_month">
+      </div>
+      <div class="col-md-3" id="dateFromWrap" style="display:none">
         <label class="form-label fw-semibold">ตั้งแต่วันที่</label>
         <input type="text" class="form-control datepick" id="rpt_from" placeholder="เลือกวันที่">
       </div>
-      <div class="col-md-3" id="dateToWrap">
+      <div class="col-md-3" id="dateToWrap" style="display:none">
         <label class="form-label fw-semibold">ถึงวันที่</label>
         <input type="text" class="form-control datepick" id="rpt_to" placeholder="เลือกวันที่">
       </div>
@@ -166,21 +170,33 @@
 <script>
 let incomeChart = null;
 
+// set default month to current month
+document.getElementById('rpt_month').value = new Date().toISOString().slice(0, 7);
+
 function toggleDatePicker() {
   const p = document.getElementById('rpt_period').value;
-  document.getElementById('dateFromWrap').style.display = p === 'day' ? 'none' : '';
-  document.getElementById('dateToWrap').style.display = p !== 'custom' ? 'none' : '';
+  document.getElementById('monthWrap').style.display = p === 'month' ? '' : 'none';
+  document.getElementById('dateFromWrap').style.display = p === 'custom' ? '' : 'none';
+  document.getElementById('dateToWrap').style.display = p === 'custom' ? '' : 'none';
 }
-toggleDatePicker();
 
 async function loadReport() {
   const period = document.getElementById('rpt_period').value;
-  const from = document.getElementById('rpt_from').value;
-  const to = document.getElementById('rpt_to').value;
-
   let url = `/api/reports/summary?period=${period}`;
-  if (from) url += `&date_from=${isoDate(from)}`;
-  if (to) url += `&date_to=${isoDate(to)}`;
+
+  if (period === 'month') {
+    const m = document.getElementById('rpt_month').value; // "YYYY-MM"
+    if (m) {
+      const [y, mo] = m.split('-').map(Number);
+      const lastDay = new Date(y, mo, 0).getDate();
+      url += `&date_from=${m}-01&date_to=${m}-${String(lastDay).padStart(2,'0')}`;
+    }
+  } else if (period === 'custom') {
+    const from = document.getElementById('rpt_from').value;
+    const to = document.getElementById('rpt_to').value;
+    if (from) url += `&date_from=${isoDate(from)}`;
+    if (to) url += `&date_to=${isoDate(to)}`;
+  }
 
   const res = await fetch(url);
   if (!res.ok) { showToast('ไม่มีสิทธิ์เข้าถึง', 'danger'); return; }
@@ -253,5 +269,8 @@ async function deleteExpense(id) {
   await fetch(`/api/expenses/${id}`, {method:'DELETE'});
   loadReport();
 }
+
+// auto-load on page open
+loadReport();
 </script>
 {% endblock %}
