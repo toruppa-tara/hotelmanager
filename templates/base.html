@@ -31,6 +31,9 @@
     <a href="/members" class="nav-link {% if '/members' in request.url.path %}active{% endif %}">
       <i class="bi bi-people-fill"></i> ลูกค้า/สมาชิก
     </a>
+    <a href="https://tm30.immigration.go.th/" target="_blank" rel="noopener noreferrer" class="nav-link">
+      <i class="bi bi-passport"></i> TM30
+    </a>
     {% if perms.manage_expenses or perms.record_expense %}
     <a href="/expenses" class="nav-link {% if '/expenses' in request.url.path %}active{% endif %}">
       <i class="bi bi-receipt"></i> บันทึกค่าใช้จ่าย
