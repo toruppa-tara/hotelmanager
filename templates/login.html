@@ -4,45 +4,183 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>เข้าสู่ระบบ — Hotel Manager</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23be185d'/><text y='78' x='50' text-anchor='middle' font-size='72' font-family='Arial Black,sans-serif' font-weight='900' fill='white'>M</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=26">
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0d3f3f 0%, #1e6e6e 50%, #2a9d8f 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      top: -150px; right: -150px;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: absolute;
+      width: 350px; height: 350px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      bottom: -100px; left: -100px;
+      pointer-events: none;
+    }
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 24px;
+      border: none;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+    .login-header {
+      background: linear-gradient(135deg, #1e6e6e 0%, #2a9d8f 100%);
+      padding: 2rem 2rem 1.6rem;
+      text-align: center;
+      position: relative;
+    }
+    .login-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 32px;
+      background: #fff;
+      border-radius: 32px 32px 0 0;
+    }
+    .login-logo {
+      width: 72px; height: 72px;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      backdrop-filter: blur(10px);
+    }
+    .login-logo i { font-size: 2rem; color: #fff; }
+    .login-header h4 {
+      color: #fff;
+      font-weight: 800;
+      font-size: 1.5rem;
+      margin-bottom: 4px;
+    }
+    .login-header p {
+      color: rgba(255,255,255,0.8);
+      font-size: 0.88rem;
+      margin: 0;
+    }
+    .login-body {
+      padding: 1.8rem 2rem 2rem;
+    }
+    .form-label {
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .input-group-text {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #64748b;
+    }
+    .form-control {
+      border-color: #e2e8f0;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 0.95rem;
+    }
+    .form-control:focus {
+      border-color: #2a9d8f;
+      box-shadow: 0 0 0 3px rgba(42,157,143,0.15);
+    }
+    .btn-login {
+      background: linear-gradient(135deg, #1e6e6e 0%, #2a9d8f 100%);
+      border: none;
+      border-radius: 12px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Sarabun', sans-serif;
+      color: #fff;
+      width: 100%;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(42,157,143,0.4);
+    }
+    .btn-login:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(42,157,143,0.5);
+      color: #fff;
+    }
+    .btn-login:active {
+      transform: translateY(0);
+    }
+    .login-footer {
+      text-align: center;
+      padding-bottom: 1.2rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  </style>
 </head>
-<body class="login-bg d-flex align-items-center justify-content-center min-vh-100">
-  <div class="login-card card shadow-lg p-4" style="width:380px">
-    <div class="text-center mb-4">
-      <div class="login-icon mb-3">
-        <i class="bi bi-building fs-1 text-primary"></i>
-      </div>
-      <h4 class="fw-bold">Hotel Manager</h4>
-      <p class="text-muted small">ระบบจัดการโรงแรม</p>
-    </div>
-
-    {% if error %}
-    <div class="alert alert-danger py-2 small">
-      <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
-    </div>
-    {% endif %}
-
-    <form method="post" action="/login">
-      <div class="mb-3">
-        <label class="form-label fw-semibold">ชื่อผู้ใช้</label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-person"></i></span>
-          <input type="text" name="username" class="form-control" placeholder="username" required autofocus>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <i class="bi bi-building"></i>
         </div>
+        <h4>Hotel Manager</h4>
+        <p>ระบบจัดการโรงแรม</p>
       </div>
-      <div class="mb-4">
-        <label class="form-label fw-semibold">รหัสผ่าน</label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" name="password" class="form-control" placeholder="password" required>
+
+      <div class="login-body">
+        {% if error %}
+        <div class="alert alert-danger py-2 mb-3" style="border-radius:10px;font-size:0.88rem;">
+          <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
         </div>
+        {% endif %}
+
+        <form method="post" action="/login">
+          <div class="mb-3">
+            <label class="form-label">ชื่อผู้ใช้</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person"></i></span>
+              <input type="text" name="username" class="form-control" placeholder="กรอกชื่อผู้ใช้" required autofocus>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">รหัสผ่าน</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-lock"></i></span>
+              <input type="password" name="password" class="form-control" placeholder="กรอกรหัสผ่าน" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-login">
+            <i class="bi bi-box-arrow-in-right me-2"></i>เข้าสู่ระบบ
+          </button>
+        </form>
       </div>
-      <button type="submit" class="btn btn-primary w-100 fw-semibold">
-        <i class="bi bi-box-arrow-in-right me-1"></i>เข้าสู่ระบบ
-      </button>
-    </form>
+      <div class="login-footer">Hotel Manager &copy; {{ 2025 }}</div>
+    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
